@@ -1,5 +1,5 @@
 --[[
-	Silly Optimizer  ·  v6.1
+	Silly Optimizer  ·  v6.2
 	FPS booster e utilitários para Roblox (Luau) — celular e PC
 
 	Como usar
@@ -19,7 +19,10 @@
 local SillyAbort -- limpa esta execução se o carregamento falhar
 local function SillyMain()
 
-local VERSION = "6.1"
+-- estado e peças da interface ficam em G (poupa variáveis locais: alguns executores têm limite baixo)
+local G = {}
+
+local VERSION = "6.2"
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -129,8 +132,8 @@ local C = {
 
 local CSK, NSK = ColorSequenceKeypoint.new, NumberSequenceKeypoint.new
 local EASE, DIR = Enum.EasingStyle, Enum.EasingDirection
-local BRAND = ColorSequence.new({ CSK(0, C.Gold), CSK(0.5, C.Salmon), CSK(1, C.Pink) })
-local PASTELS = { C.Salmon, C.Peach, C.Gold, C.Pink, C.Apricot }
+G.BRAND = ColorSequence.new({ CSK(0, C.Gold), CSK(0.5, C.Salmon), CSK(1, C.Pink) })
+G.PASTELS = { C.Salmon, C.Peach, C.Gold, C.Pink, C.Apricot }
 
 local function pickFont(primary, fallback)
 	local ok, f = pcall(function()
@@ -169,27 +172,27 @@ local Prefs = {
 }
 
 -- leitura antecipada do arquivo salvo (idioma e preferências valem já na montagem)
-local SAVE_FILE = "SillyOptimizer.json"
-local SaveData
+G.SAVE_FILE = "SillyOptimizer.json"
+-- G.SaveData fica em G
 if Env.canSave then
-	local okF, exists = pcall(Env.isfile, SAVE_FILE)
+	local okF, exists = pcall(Env.isfile, G.SAVE_FILE)
 	if okF and exists then
 		local ok, data = pcall(function()
-			return HttpService:JSONDecode(Env.readfile(SAVE_FILE))
+			return HttpService:JSONDecode(Env.readfile(G.SAVE_FILE))
 		end)
 		if ok and type(data) == "table" then
-			SaveData = data
+			G.SaveData = data
 		end
 	end
 end
-if SaveData and type(SaveData.prefs) == "table" then
-	for k, v in pairs(SaveData.prefs) do
+if G.SaveData and type(G.SaveData.prefs) == "table" then
+	for k, v in pairs(G.SaveData.prefs) do
 		if Prefs[k] ~= nil and type(v) == type(Prefs[k]) then
 			Prefs[k] = v
 		end
 	end
 end
-if SaveData and SaveData.remember == true then
+if G.SaveData and G.SaveData.remember == true then
 	Prefs.remember = true -- compatível com o arquivo da v4
 end
 
@@ -713,6 +716,7 @@ local EN = { -- EN_DICT
 	["Limpar memória, idioma Português/English e reset de fábrica"] = "Clean memory, Portuguese/English language and factory reset",
 	["Modo leve no celular: a interface não usa mais CanvasGroup no mobile"] = "Mobile lite mode: the interface no longer uses CanvasGroup on mobile",
 	["Se algo der errado ao abrir, aparece um aviso na tela com o motivo"] = "If something goes wrong on start, an on-screen notice shows why",
+	["Corrigido o erro \"Out of local registers\" no Delta e em outros executores"] = "Fixed the \"Out of local registers\" error on Delta and other executors",
 	["Correção para executores em que a interface não aparecia"] = "Fix for executors where the interface didn't show up",
 	["Visual novo, tela de carregamento e animações"] = "New look, loading screen and animations",
 	["Ajustes com estado claro, busca e filtros"] = "Tweaks with clear state, search and filters",
@@ -760,10 +764,14 @@ local Ext = {
 	pings = {},
 	gameName = "",
 	sessionStart = os.clock(),
-	Games = (SaveData and type(SaveData.games) == "table") and SaveData.games or {},
-	Profiles = (SaveData and type(SaveData.profiles) == "table") and SaveData.profiles or {},
-	Gallery = (SaveData and type(SaveData.gallery) == "table") and SaveData.gallery or {},
+	Games = (G.SaveData and type(G.SaveData.games) == "table") and G.SaveData.games or {},
+	Profiles = (G.SaveData and type(G.SaveData.profiles) == "table") and G.SaveData.profiles or {},
+	Gallery = (G.SaveData and type(G.SaveData.gallery) == "table") and G.SaveData.gallery or {},
 }
+-- roda um bloco em função própria (compiladores de executor têm limite de registradores)
+function Ext.run(f)
+	return f()
+end
 
 --------------------------------------------------------------------------
 -- HELPERS
@@ -883,7 +891,7 @@ local function formatDuration(sec)
 end
 
 -- brilho de 4 pontas desenhado com frames (nítido em qualquer tela, sem emoji)
-local SPARKLE_FADE = NumberSequence.new({ NSK(0, 1), NSK(0.5, 0), NSK(1, 1) })
+G.SPARKLE_FADE = NumberSequence.new({ NSK(0, 1), NSK(0.5, 0), NSK(1, 1) })
 local function sparkleShape(parent, size, color)
 	local holder = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -901,7 +909,7 @@ local function sparkleShape(parent, size, color)
 			BackgroundColor3 = color,
 			BorderSizePixel = 0,
 			Parent = holder,
-		}, { corner("full"), make("UIGradient", { Rotation = 90, Transparency = SPARKLE_FADE }) })
+		}, { corner("full"), make("UIGradient", { Rotation = 90, Transparency = G.SPARKLE_FADE }) })
 	end
 	make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -922,7 +930,7 @@ local function twinkle(parent, pos, opts)
 	end
 	opts = opts or {}
 	local life = opts.life or (0.7 + math.random() * 0.6)
-	local s = sparkleShape(parent, opts.size or math.random(8, 18), opts.color or PASTELS[math.random(#PASTELS)])
+	local s = sparkleShape(parent, opts.size or math.random(8, 18), opts.color or G.PASTELS[math.random(#G.PASTELS)])
 	s.Position = pos
 	local sc = make("UIScale", { Scale = 0, Parent = s })
 	TweenService:Create(sc, TweenInfo.new(life * 0.45, EASE.Back, DIR.Out), { Scale = 1 }):Play()
@@ -958,7 +966,7 @@ local function brandTile(parent, size, radius, markSize)
 		BorderSizePixel = 0,
 		Parent = parent,
 	}, { corner(radius) })
-	local grad = make("UIGradient", { Rotation = 45, Color = BRAND, Parent = tile })
+	local grad = make("UIGradient", { Rotation = 45, Color = G.BRAND, Parent = tile })
 	local mark = sparkleShape(tile, markSize, C.Ink)
 	mark.Position = UDim2.fromScale(0.5, 0.5)
 	return tile, mark, grad
@@ -1017,9 +1025,9 @@ if Gui.AbsoluteSize.X < 2 and Gui.Parent ~= LocalPlayer:FindFirstChildOfClass("P
 	end)
 end
 
-local TopInset = 58
+G.TopInset = 58
 pcall(function()
-	TopInset = math.max(36, (GuiService:GetGuiInset()).Y)
+	G.TopInset = math.max(36, (GuiService:GetGuiInset()).Y)
 end)
 
 local function viewportSize()
@@ -1124,7 +1132,7 @@ end
 -- TELA DE CARREGAMENTO
 --------------------------------------------------------------------------
 local Splash = {}
-do
+Ext.run(function()
 	local overlay = make("Frame", {
 		Name = "Splash",
 		Size = UDim2.fromScale(1, 1),
@@ -1196,7 +1204,7 @@ do
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Parent = track_,
-	}, { corner("full"), make("UIGradient", { Color = BRAND }) })
+	}, { corner("full"), make("UIGradient", { Color = G.BRAND }) })
 	local shine = make("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = C.White,
@@ -1284,7 +1292,7 @@ do
 			overlay:Destroy()
 		end)
 	end
-end
+end)
 
 Splash.start()
 Splash.step("Carregando tema e fontes", 0.12)
@@ -1294,10 +1302,10 @@ Splash.step("Carregando tema e fontes", 0.12)
 -- Cada opção guarda o valor original de cada propriedade alterada e devolve
 -- ao desligar. Regras por classe também pegam instâncias novas.
 --------------------------------------------------------------------------
-local QualityChoice = 1
-local FpsCap, FarmMinutes, JumpEvery = 30, 60, 60
-local FarmSince
-local BlackGui
+G.QualityChoice = 1
+G.FpsCap, G.FarmMinutes, G.JumpEvery = 30, 60, 60
+-- G.FarmSince fica em G
+-- G.BlackGui fica em G
 local Hooks = {}
 
 function Ext.inCharacter(inst)
@@ -1322,7 +1330,7 @@ function Fps.apply(Active_)
 	end
 	local target = Fps.original
 	if Active_.fpscap then
-		target = FpsCap
+		target = G.FpsCap
 	elseif Active_.fps_unlock then
 		target = Fps.unlock
 	end
@@ -1343,8 +1351,9 @@ local function same(a, b)
 	return a == b
 end
 
-local Active, Saved, Stat, Scanning, Watchers = {}, {}, {}, {}, {}
-local ById, ClassOptions, FarmIds = {}, {}, {}
+local Active = {}
+G.Saved, G.Stat, G.Scanning, G.Watchers = {}, {}, {}, {}
+G.ById, G.ClassOptions, G.FarmIds = {}, {}, {}
 
 local OPTIONS
 do -- definição das opções em escopo próprio (economiza variáveis locais)
@@ -1498,7 +1507,7 @@ OPTIONS = {
 	  blockedText = "Sem permissão neste ambiente",
 	  choices = { 1, 3, 5, 7 }, choiceIndex = 1, fmt = qualityFmt,
 	  targets = { { renderT, function()
-		  return { QualityLevel = Enum.QualityLevel["Level" .. string.format("%02d", QualityChoice)] }
+		  return { QualityLevel = Enum.QualityLevel["Level" .. string.format("%02d", G.QualityChoice)] }
 	  end } } },
 	{ id = "anim_others", cat = "SISTEMA", title = "Pausar animações dos outros",
 	  desc = "Personagens alheios ficam parados (volta ao se mexerem)",
@@ -1513,7 +1522,7 @@ OPTIONS = {
 end -- fim das opções
 
 -- Desempenho extra: distância de renderização, acessórios e FPS desbloqueado
-do
+Ext.run(function()
 	-- esconde (só para você) objetos longe da câmera; varre o mapa aos poucos para não travar
 	local RD = { dist = 500, hidden = {}, count = 0, token = 0 }
 	local function rdOn()
@@ -1674,16 +1683,16 @@ do
 	for _, opt in ipairs(extra) do
 		table.insert(OPTIONS, opt)
 	end
-end
+end)
 
 local function register(opt)
-	ById[opt.id] = opt
+	G.ById[opt.id] = opt
 	Active[opt.id] = false
-	Saved[opt.id] = setmetatable({}, { __mode = "k" })
-	Stat[opt.id] = { items = 0, failed = 0, ok = nil }
-	Watchers[opt.id] = {}
+	G.Saved[opt.id] = setmetatable({}, { __mode = "k" })
+	G.Stat[opt.id] = { items = 0, failed = 0, ok = nil }
+	G.Watchers[opt.id] = {}
 	if opt.classes then
-		table.insert(ClassOptions, opt)
+		table.insert(G.ClassOptions, opt)
 	end
 end
 for _, opt in ipairs(OPTIONS) do
@@ -1714,7 +1723,7 @@ local Audio = {
 		{ name = "Graves", low = 8, mid = 0, high = -2, bars = { 1, 0.5, 0.35 } },
 	},
 }
-do
+Ext.run(function()
 	local KW = {
 		steps = { "footstep", "step", "running", "walk", "landing", "climb" },
 		combat = { "shot", "shoot", "gun", "fire", "hit", "punch", "slash", "sword", "reload", "bullet",
@@ -2006,13 +2015,13 @@ do
 			task.defer(Audio.applyVoice)
 		end
 	end))
-end
+end)
 
 --------------------------------------------------------------------------
 -- MODO FARM
 --------------------------------------------------------------------------
-local FARM_OPTIONS
-do
+-- G.FARM_OPTIONS fica em G
+Ext.run(function()
 	-- Anti-AFK (evento Idled do Roblox, ~20 min sem input)
 	local afkConn
 	local function afkOn()
@@ -2043,7 +2052,7 @@ do
 		local my = jumpToken
 		task.spawn(function()
 			while Active.afk_jump and jumpToken == my and not Destroyed do
-				nextJump = os.clock() + JumpEvery
+				nextJump = os.clock() + G.JumpEvery
 				while os.clock() < nextJump do
 					task.wait(1)
 					if not (Active.afk_jump and jumpToken == my) or Destroyed then
@@ -2128,7 +2137,7 @@ do
 
 	-- Tela preta (fica abaixo do menu e do botão flutuante)
 	local function blackOn()
-		if BlackGui then
+		if G.BlackGui then
 			return true
 		end
 		local g = make("ScreenGui", {
@@ -2138,7 +2147,7 @@ do
 			DisplayOrder = 999,
 			ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 		})
-		BlackGui = g
+		G.BlackGui = g
 		make("Frame", {
 			Size = UDim2.fromScale(1, 1),
 			BackgroundColor3 = C.Black,
@@ -2179,8 +2188,8 @@ do
 		g.Parent = Gui.Parent
 		task.spawn(function()
 			local n = 0
-			while BlackGui == g and not Destroyed do
-				clock.Text = formatDuration(FarmSince and (os.clock() - FarmSince) or 0)
+			while G.BlackGui == g and not Destroyed do
+				clock.Text = formatDuration(G.FarmSince and (os.clock() - G.FarmSince) or 0)
 				n += 1
 				if n % 45 == 0 then
 					-- move um pouco para não marcar tela OLED
@@ -2192,9 +2201,9 @@ do
 		return true
 	end
 	local function blackOff()
-		if BlackGui then
-			BlackGui:Destroy()
-			BlackGui = nil
+		if G.BlackGui then
+			G.BlackGui:Destroy()
+			G.BlackGui = nil
 		end
 	end
 
@@ -2356,7 +2365,7 @@ do
 	local function timerOn()
 		timerToken += 1
 		local my = timerToken
-		timerEnds = os.clock() + FarmMinutes * 60
+		timerEnds = os.clock() + G.FarmMinutes * 60
 		task.spawn(function()
 			while Active.farm_timer and timerToken == my and not Destroyed do
 				task.wait(2)
@@ -2382,7 +2391,7 @@ do
 		return n
 	end
 
-	FARM_OPTIONS = {
+	G.FARM_OPTIONS = {
 		{ id = "antiafk", cat = "PROTEÇÃO", tab = "protect", title = "Anti-AFK",
 		  desc = "Evita o kick do Roblox depois de ~20 min parado",
 		  statusText = function()
@@ -2396,7 +2405,7 @@ do
 			  return v < 60 and (v .. " s") or ((v // 60) .. " min")
 		  end,
 		  onChoice = function(v)
-			  JumpEvery = v
+			  G.JumpEvery = v
 			  if Active.afk_jump then
 				  jumpOn()
 			  end
@@ -2429,13 +2438,13 @@ do
 			  return v .. " FPS"
 		  end,
 		  onChoice = function(v)
-			  FpsCap = v
+			  G.FpsCap = v
 			  if Active.fpscap then
-				  Stat.fpscap.ok = capOn()
+				  G.Stat.fpscap.ok = capOn()
 			  end
 		  end,
 		  statusText = function()
-			  return T("Ativo · limite de") .. " " .. FpsCap .. " FPS"
+			  return T("Ativo · limite de") .. " " .. G.FpsCap .. " FPS"
 		  end,
 		  custom = { on = capOn, off = capOff } },
 		{ id = "mute", cat = "BATERIA E CALOR", title = "Silenciar sons",
@@ -2478,7 +2487,7 @@ do
 			  return v >= 60 and ((v // 60) .. " h") or (v .. " min")
 		  end,
 		  onChoice = function(v)
-			  FarmMinutes = v
+			  G.FarmMinutes = v
 			  if Active.farm_timer then
 				  timerOn()
 			  end
@@ -2489,19 +2498,19 @@ do
 		  custom = { on = timerOn, off = timerOff } },
 	}
 
-	for _, opt in ipairs(FARM_OPTIONS) do
+	for _, opt in ipairs(G.FARM_OPTIONS) do
 		register(opt)
 		if opt.tab ~= "protect" then
-			FarmIds[opt.id] = true
+			G.FarmIds[opt.id] = true
 		end
 	end
-end
+end)
 
 --------------------------------------------------------------------------
 -- VISUAL e PROTEÇÃO (opções do motor, mas fora dos presets)
 --------------------------------------------------------------------------
-local VISUAL_OPTIONS, PROTECT_LIST
-do
+-- G.VISUAL_OPTIONS, G.PROTECT_LIST fica em G
+Ext.run(function()
 	Ext.time, Ext.sky, Ext.shader, Ext.zoom = 2, 2, 1, 400
 	local function lightingT()
 		return Lighting
@@ -2747,13 +2756,13 @@ do
 		return LocalPlayer
 	end
 
-	VISUAL_OPTIONS = {
+	G.VISUAL_OPTIONS = {
 		{ id = "vis_time", cat = "AMBIENTE", title = "Horário do dia",
 		  desc = "Troca o horário só para você",
 		  choices = { 1, 2, 3, 4, 5 }, choiceIndex = 2, fmt = idxFmt(TIMES),
 		  onChoice = function(v)
 			  Ext.time = v
-			  Hooks.reapply(ById.vis_time)
+			  Hooks.reapply(G.ById.vis_time)
 		  end,
 		  targets = { { lightingT, function()
 			  return { ClockTime = TIMES[Ext.time].v }
@@ -2813,7 +2822,7 @@ do
 		  end,
 		  onChoice = function(v)
 			  Ext.zoom = v
-			  Hooks.reapply(ById.vis_zoom)
+			  Hooks.reapply(G.ById.vis_zoom)
 		  end,
 		  targets = { { playerT, function()
 			  return { CameraMaxZoomDistance = Ext.zoom }
@@ -2831,7 +2840,7 @@ do
 		  end,
 		  custom = { on = hlOn, off = hlOff } },
 	}
-	for _, opt in ipairs(VISUAL_OPTIONS) do
+	for _, opt in ipairs(G.VISUAL_OPTIONS) do
 		register(opt)
 	end
 
@@ -2973,15 +2982,15 @@ do
 	for _, opt in ipairs(protect) do
 		register(opt)
 	end
-	PROTECT_LIST = { ById.antifling, ById.antiafk, ById.reconnect, ById.antilag, ById.streamer }
-end
+	G.PROTECT_LIST = { G.ById.antifling, G.ById.antiafk, G.ById.reconnect, G.ById.antilag, G.ById.streamer }
+end)
 
 --------------------------------------------------------------------------
 -- APLICAR / RESTAURAR
 --------------------------------------------------------------------------
 -- verify = lê de volta depois de escrever (alvos únicos: Lighting, Terrain, qualidade)
 local function applyProps(id, inst, props, verify)
-	local store, stat = Saved[id], Stat[id]
+	local store, stat = G.Saved[id], G.Stat[id]
 	local rec = store[inst]
 	if not rec then
 		rec = {}
@@ -3007,36 +3016,36 @@ local function applyProps(id, inst, props, verify)
 end
 
 local function clearWatchers(id)
-	for _, c in ipairs(Watchers[id]) do
+	for _, c in ipairs(G.Watchers[id]) do
 		c:Disconnect()
 	end
-	table.clear(Watchers[id])
+	table.clear(G.Watchers[id])
 end
 
 -- se o jogo mudar de volta (ex.: ciclo dia/noite mexendo na neblina),
 -- o novo valor vira o "original" e a otimização é reaplicada
-local Guard = false
+G.Guard = false
 local function watchTarget(id, inst, props)
 	for prop, value in pairs(props) do
 		local ok, sig = pcall(function()
 			return inst:GetPropertyChangedSignal(prop)
 		end)
 		if ok then
-			table.insert(Watchers[id], sig:Connect(function()
-				if Guard or not Active[id] then
+			table.insert(G.Watchers[id], sig:Connect(function()
+				if G.Guard or not Active[id] then
 					return
 				end
 				local okv, cur = pcall(getProp, inst, prop)
 				if not okv or same(cur, value) then
 					return
 				end
-				local rec = Saved[id][inst]
+				local rec = G.Saved[id][inst]
 				if rec then
 					rec[prop] = cur
 				end
-				Guard = true
+				G.Guard = true
 				pcall(setProp, inst, prop, value)
-				Guard = false
+				G.Guard = false
 			end))
 		end
 	end
@@ -3044,7 +3053,7 @@ end
 
 local function applyTargets(opt)
 	clearWatchers(opt.id)
-	Stat[opt.id].failed = 0
+	G.Stat[opt.id].failed = 0
 	for _, t in ipairs(opt.targets) do
 		local okI, inst = pcall(t[1])
 		if okI and inst then
@@ -3055,7 +3064,7 @@ local function applyTargets(opt)
 			applyProps(opt.id, inst, props, true)
 			watchTarget(opt.id, inst, props)
 		else
-			Stat[opt.id].failed += 1
+			G.Stat[opt.id].failed += 1
 		end
 	end
 end
@@ -3086,13 +3095,13 @@ local function applyClassRules(inst, opt)
 end
 
 local function restore(opt, sync)
-	local store = Saved[opt.id]
+	local store = G.Saved[opt.id]
 	local items = {}
 	for inst, rec in pairs(store) do
 		items[#items + 1] = { inst, rec }
 	end
 	local function run()
-		Guard = true
+		G.Guard = true
 		for i, item in ipairs(items) do
 			if not sync and (Active[opt.id] or Destroyed) then
 				break
@@ -3102,12 +3111,12 @@ local function restore(opt, sync)
 			end
 			store[item[1]] = nil
 			if not sync and i % 800 == 0 then
-				Guard = false
+				G.Guard = false
 				task.wait()
-				Guard = true
+				G.Guard = true
 			end
 		end
-		Guard = false
+		G.Guard = false
 	end
 	if sync then
 		run()
@@ -3125,15 +3134,15 @@ local function scanRoots()
 	return roots
 end
 
-local scanSerial = 0
+G.scanSerial = 0
 local function scan(optList)
 	if #optList == 0 then
 		return
 	end
-	scanSerial += 1
-	local my = scanSerial
+	G.scanSerial += 1
+	local my = G.scanSerial
 	for _, opt in ipairs(optList) do
-		Scanning[opt.id] = my
+		G.Scanning[opt.id] = my
 	end
 	task.spawn(function()
 		local n = 0
@@ -3157,15 +3166,15 @@ local function scan(optList)
 			end
 		end
 		for _, opt in ipairs(optList) do
-			if Scanning[opt.id] == my then
-				Scanning[opt.id] = nil
+			if G.Scanning[opt.id] == my then
+				G.Scanning[opt.id] = nil
 			end
 		end
 	end)
 end
 
 local function handleNew(inst)
-	for _, opt in ipairs(ClassOptions) do
+	for _, opt in ipairs(G.ClassOptions) do
 		if Active[opt.id] then
 			applyClassRules(inst, opt)
 		end
@@ -3184,14 +3193,14 @@ end)
 local function setOptions(map)
 	local toScan = {}
 	for id, v in pairs(map) do
-		local opt = ById[id]
+		local opt = G.ById[id]
 		if opt and Active[id] ~= v then
 			Active[id] = v
-			local s = Stat[id]
+			local s = G.Stat[id]
 			s.failed, s.ok = 0, nil
 			if v then
 				local n = 0
-				for _ in pairs(Saved[id]) do
+				for _ in pairs(G.Saved[id]) do
 					n += 1
 				end
 				s.items = n
@@ -3207,7 +3216,7 @@ local function setOptions(map)
 				end
 			else
 				s.items = 0
-				Scanning[id] = nil
+				G.Scanning[id] = nil
 				clearWatchers(id)
 				restore(opt, false)
 				if opt.custom then
@@ -3218,13 +3227,13 @@ local function setOptions(map)
 	end
 	scan(toScan)
 	local anyFarm = false
-	for id in pairs(FarmIds) do
+	for id in pairs(G.FarmIds) do
 		if Active[id] then
 			anyFarm = true
 			break
 		end
 	end
-	FarmSince = anyFarm and (FarmSince or os.clock()) or nil
+	G.FarmSince = anyFarm and (G.FarmSince or os.clock()) or nil
 	if Hooks.changed then
 		Hooks.changed()
 	end
@@ -3232,7 +3241,7 @@ end
 
 -- texto e tipo do estado de cada opção (o que aparece embaixo do título)
 local function statusOf(id)
-	local opt, s = ById[id], Stat[id]
+	local opt, s = G.ById[id], G.Stat[id]
 	if not Active[id] then
 		return T("Desligado"), "off"
 	end
@@ -3248,7 +3257,7 @@ local function statusOf(id)
 		end
 		return T("Ativo"), "on"
 	end
-	if Scanning[id] then
+	if G.Scanning[id] then
 		return T("Aplicando…"), "busy"
 	end
 	if opt.targets then
@@ -3281,7 +3290,7 @@ end
 --------------------------------------------------------------------------
 -- PRESETS
 --------------------------------------------------------------------------
-local PRESETS
+-- G.PRESETS fica em G
 do
 local softList = { "fog", "post_fx", "water_waves", "water_reflect", "reflections", "reverb", "shadows", "quality" }
 local mediumList = table.clone(softList)
@@ -3299,7 +3308,7 @@ for _, opt in ipairs(OPTIONS) do
 	end
 end
 
-PRESETS = {
+G.PRESETS = {
 	{ id = "soft", name = "Soft", level = 1, quality = 5, list = softList, accent = C.Gold,
 	  desc = "Mantém o visual bonito. Tira neblina, pós-processamento, água animada e sombras globais." },
 	{ id = "medium", name = "Medium", level = 2, quality = 3, list = mediumList, accent = C.Peach,
@@ -3329,11 +3338,11 @@ local function setChoice(opt, value, silent)
 	return false
 end
 
-ById.quality.onChoice = function(v)
-	QualityChoice = v
+G.ById.quality.onChoice = function(v)
+	G.QualityChoice = v
 	if Active.quality then
-		Stat.quality.failed = 0
-		applyTargets(ById.quality)
+		G.Stat.quality.failed = 0
+		applyTargets(G.ById.quality)
 	end
 	if Hooks.changed then
 		Hooks.changed()
@@ -3346,7 +3355,7 @@ local function applyPreset(p)
 		for _, id in ipairs(p.list) do
 			inList[id] = true
 		end
-		setChoice(ById.quality, p.quality)
+		setChoice(G.ById.quality, p.quality)
 	end
 	local map = {}
 	for _, opt in ipairs(OPTIONS) do
@@ -3357,10 +3366,10 @@ local function applyPreset(p)
 end
 
 -- captura e aplica o estado de uma lista de opções (perfis, presets por jogo, galeria)
-local FarmList = {}
-for _, opt in ipairs(FARM_OPTIONS) do
+G.FarmList = {}
+for _, opt in ipairs(G.FARM_OPTIONS) do
 	if opt.tab ~= "protect" then
-		FarmList[#FarmList + 1] = opt
+		G.FarmList[#G.FarmList + 1] = opt
 	end
 end
 
@@ -3412,7 +3421,7 @@ function Ext.applyTweaks(cap)
 	end
 	Ext.applyList(OPTIONS, cap)
 	local found
-	for _, p in ipairs(PRESETS) do
+	for _, p in ipairs(G.PRESETS) do
 		if p.id == cap.preset then
 			found = p
 		end
@@ -3424,12 +3433,12 @@ function Ext.applyTweaks(cap)
 end
 
 Splash.step("Lendo iluminação e terreno", 0.3)
-do
+Ext.run(function()
 	local ok, n = pcall(function()
 		return #Workspace:GetDescendants()
 	end)
 	Splash.step(ok and (T("Mapeando o mundo") .. " · " .. fmtNum(n) .. " " .. T("objetos")) or "Mapeando o mundo", 0.46)
-end
+end)
 
 --------------------------------------------------------------------------
 -- COMPONENTES DE INTERFACE
@@ -3873,24 +3882,24 @@ end
 --------------------------------------------------------------------------
 -- TOASTS (avisos rápidos no topo)
 --------------------------------------------------------------------------
-local ToastHolder = make("Frame", {
+G.ToastHolder = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, TopInset + 6),
+	Position = UDim2.new(0.5, 0, 0, G.TopInset + 6),
 	Size = UDim2.new(0, 460, 0, 200),
 	BackgroundTransparency = 1,
 	ZIndex = 48,
 	Parent = Gui,
 }, { list(Enum.FillDirection.Vertical, 8, Enum.HorizontalAlignment.Center) })
 
-local toastSerial = 0
+G.toastSerial = 0
 local function toast(msg, color)
 	-- avisos de erro sempre aparecem; os demais respeitam "Notificações"
 	if Destroyed or (not Prefs.notify and color ~= C.Warn) then
 		return
 	end
-	toastSerial += 1
+	G.toastSerial += 1
 	local kids = {}
-	for _, c in ipairs(ToastHolder:GetChildren()) do
+	for _, c in ipairs(G.ToastHolder:GetChildren()) do
 		if c:GetAttribute("Toast") then
 			kids[#kids + 1] = c
 		end
@@ -3899,13 +3908,13 @@ local function toast(msg, color)
 		kids[1]:Destroy()
 	end
 	local cg = make("CanvasGroup", {
-		LayoutOrder = toastSerial,
+		LayoutOrder = G.toastSerial,
 		Size = UDim2.fromOffset(0, 40),
 		AutomaticSize = Enum.AutomaticSize.X,
 		BackgroundColor3 = C.Bg,
 		BorderSizePixel = 0,
 		GroupTransparency = 1,
-		Parent = ToastHolder,
+		Parent = G.ToastHolder,
 	}, {
 		corner("full"),
 		stroke(C.Stroke, 1, 0),
@@ -3946,9 +3955,9 @@ end
 --------------------------------------------------------------------------
 -- JANELA
 --------------------------------------------------------------------------
-local WIN_W, WIN_H = 760, 520
-local SIDE_W, HEAD_H = 184, 96
-local TAB_H, TAB_GAP = 36, 2
+G.WIN_W, G.WIN_H = 760, 520
+G.SIDE_W, G.HEAD_H = 184, 96
+G.TAB_H, G.TAB_GAP = 36, 2
 
 -- cada aba tem a própria cor de destaque (sempre pastel)
 local TABS = {
@@ -3973,26 +3982,26 @@ local TABS = {
 	{ id = "config", name = "Configurações", kicker = "CONFIGURAÇÕES", accent = C.Apricot,
 	  title = "Preferências", sub = "Idioma, notificações, salvamento e compatibilidade" },
 }
-local TI = {}
+G.TI = {}
 for i, t in ipairs(TABS) do
-	TI[t.id] = i
+	G.TI[t.id] = i
 end
 
 local Root = make("Frame", {
 	Name = "Window",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(WIN_W, WIN_H),
+	Size = UDim2.fromOffset(G.WIN_W, G.WIN_H),
 	BackgroundTransparency = 1,
 	Visible = false,
 	ZIndex = 5,
 	Parent = Gui,
 })
-local FitScale = make("UIScale", { Parent = Root })
-local Holder = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = Root })
-local AnimScale = make("UIScale", { Scale = 0.94, Parent = Holder })
+G.FitScale = make("UIScale", { Parent = Root })
+G.Holder = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = Root })
+G.AnimScale = make("UIScale", { Scale = 0.94, Parent = G.Holder })
 
-local Shadows = {}
+G.Shadows = {}
 for _, s in ipairs({ { 8, 10, 0.86 }, { 22, 26, 0.92 }, { 42, 48, 0.96 } }) do
 	local f = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -4001,9 +4010,9 @@ for _, s in ipairs({ { 8, 10, 0.86 }, { 22, 26, 0.92 }, { 42, 48, 0.96 } }) do
 		BackgroundColor3 = C.Black,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Parent = Holder,
+		Parent = G.Holder,
 	}, { corner(26 + s[1] // 4) })
-	table.insert(Shadows, { frame = f, shown = s[3] })
+	table.insert(G.Shadows, { frame = f, shown = s[3] })
 end
 
 local Window = make("CanvasGroup", {
@@ -4011,12 +4020,12 @@ local Window = make("CanvasGroup", {
 	BackgroundColor3 = C.Bg,
 	BorderSizePixel = 0,
 	GroupTransparency = 1,
-	Parent = Holder,
+	Parent = G.Holder,
 }, { corner(22), stroke(C.Stroke, 1, 0) })
 
 -- menu lateral
-local Sidebar = make("Frame", {
-	Size = UDim2.new(0, SIDE_W, 1, 0),
+G.Sidebar = make("Frame", {
+	Size = UDim2.new(0, G.SIDE_W, 1, 0),
 	BackgroundColor3 = C.Side,
 	BorderSizePixel = 0,
 	Parent = Window,
@@ -4027,7 +4036,7 @@ make("Frame", {
 	Size = UDim2.new(0, 24, 1, 0),
 	BackgroundColor3 = C.Side,
 	BorderSizePixel = 0,
-	Parent = Sidebar,
+	Parent = G.Sidebar,
 })
 make("Frame", {
 	AnchorPoint = Vector2.new(1, 0),
@@ -4035,63 +4044,63 @@ make("Frame", {
 	Size = UDim2.new(0, 1, 1, 0),
 	BackgroundColor3 = C.Stroke,
 	BorderSizePixel = 0,
-	Parent = Sidebar,
+	Parent = G.Sidebar,
 })
-local Brand = make("Frame", {
+G.Brand = make("Frame", {
 	Size = UDim2.new(1, 0, 0, 64),
 	BackgroundTransparency = 1,
 	Active = true,
-	Parent = Sidebar,
+	Parent = G.Sidebar,
 })
-do
-	local tile = brandTile(Brand, 36, 11, 20)
+Ext.run(function()
+	local tile = brandTile(G.Brand, 36, 11, 20)
 	tile.Position = UDim2.fromOffset(18, 16)
-	text({ Text = "Silly", Font = F.Heavy, TextSize = 17, Position = UDim2.fromOffset(64, 15), Size = UDim2.fromOffset(100, 18), Parent = Brand })
-	text({ Text = "Optimizer", TextSize = 12, TextColor3 = C.Sub, Position = UDim2.fromOffset(64, 34), Size = UDim2.fromOffset(100, 16), Parent = Brand })
-end
+	text({ Text = "Silly", Font = F.Heavy, TextSize = 17, Position = UDim2.fromOffset(64, 15), Size = UDim2.fromOffset(100, 18), Parent = G.Brand })
+	text({ Text = "Optimizer", TextSize = 12, TextColor3 = C.Sub, Position = UDim2.fromOffset(64, 34), Size = UDim2.fromOffset(100, 16), Parent = G.Brand })
+end)
 
-local TabHolder = make("ScrollingFrame", {
+G.TabHolder = make("ScrollingFrame", {
 	Position = UDim2.fromOffset(12, 66),
 	Size = UDim2.new(1, -24, 1, -112),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ScrollBarThickness = 0,
-	CanvasSize = UDim2.fromOffset(0, #TABS * (TAB_H + TAB_GAP)),
+	CanvasSize = UDim2.fromOffset(0, #TABS * (G.TAB_H + G.TAB_GAP)),
 	ScrollingDirection = Enum.ScrollingDirection.Y,
-	Parent = Sidebar,
+	Parent = G.Sidebar,
 })
-local Indicator = make("Frame", {
-	Size = UDim2.new(1, 0, 0, TAB_H),
+G.Indicator = make("Frame", {
+	Size = UDim2.new(1, 0, 0, G.TAB_H),
 	BackgroundColor3 = TABS[1].accent,
 	BackgroundTransparency = 0.88,
 	BorderSizePixel = 0,
-	Parent = TabHolder,
+	Parent = G.TabHolder,
 }, { corner(12) })
-local IndicatorBar = make("Frame", {
+G.IndicatorBar = make("Frame", {
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 0, 0.5, 0),
 	Size = UDim2.fromOffset(3, 18),
 	BackgroundColor3 = TABS[1].accent,
 	BorderSizePixel = 0,
-	Parent = Indicator,
+	Parent = G.Indicator,
 }, { corner("full") })
 
-local KEY_NAMES = {
+G.KEY_NAMES = {
 	RightShift = "Shift direito",
 	RightControl = "Ctrl direito",
 	Insert = "Insert",
 	Home = "Home",
 	F6 = "F6",
 }
-local KEY_LIST = { "RightShift", "RightControl", "Insert", "Home", "F6" }
+G.KEY_LIST = { "RightShift", "RightControl", "Insert", "Home", "F6" }
 local refreshKeyCap
-do -- rodapé do menu lateral: [tecla] abre e fecha
+Ext.run(function() -- rodapé do menu lateral: [tecla] abre e fecha
 	local foot = make("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 18, 1, -18),
 		Size = UDim2.new(1, -36, 0, 22),
 		BackgroundTransparency = 1,
-		Parent = Sidebar,
+		Parent = G.Sidebar,
 	}, { list(Enum.FillDirection.Horizontal, 8, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Center) })
 	local cap = make("Frame", {
 		LayoutOrder = 1,
@@ -4120,14 +4129,14 @@ do -- rodapé do menu lateral: [tecla] abre e fecha
 		Parent = foot,
 	})
 	refreshKeyCap = function()
-		capLabel.Text = Env.touch and "Botão flutuante" or (KEY_NAMES[Prefs.keybind] or Prefs.keybind)
+		capLabel.Text = Env.touch and "Botão flutuante" or (G.KEY_NAMES[Prefs.keybind] or Prefs.keybind)
 		hint.Visible = not Env.touch
 	end
-end
+end)
 
-local TabUI, Pages, Bodies = {}, {}, {}
-local CurrentTab
-local TabTick = {}
+G.TabUI, G.Pages, G.Bodies = {}, {}, {}
+-- G.CurrentTab fica em G
+G.TabTick = {}
 
 -- desenho decorativo de cada aba (canto do cabeçalho): dá identidade própria a cada uma
 function Ext.buildMotif(page, tab)
@@ -4224,9 +4233,9 @@ for i, tab in ipairs(TABS) do
 		Text = "",
 		AutoButtonColor = false,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, (i - 1) * (TAB_H + TAB_GAP)),
-		Size = UDim2.new(1, 0, 0, TAB_H),
-		Parent = TabHolder,
+		Position = UDim2.fromOffset(0, (i - 1) * (G.TAB_H + G.TAB_GAP)),
+		Size = UDim2.new(1, 0, 0, G.TAB_H),
+		Parent = G.TabHolder,
 	})
 	local dot = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -4250,21 +4259,21 @@ for i, tab in ipairs(TABS) do
 	badge.Size = UDim2.fromOffset(0, 18)
 	badge.Visible = false
 	b.MouseEnter:Connect(function()
-		if CurrentTab ~= i then
+		if G.CurrentTab ~= i then
 			tween(label, 0.15, { TextColor3 = C.Text })
 		end
 	end)
 	b.MouseLeave:Connect(function()
-		if CurrentTab ~= i then
+		if G.CurrentTab ~= i then
 			tween(label, 0.2, { TextColor3 = C.Sub })
 		end
 	end)
-	TabUI[i] = { btn = b, dot = dot, label = label, badge = badge, badgeText = badgeText }
+	G.TabUI[i] = { btn = b, dot = dot, label = label, badge = badge, badgeText = badgeText }
 
 	local page = make("CanvasGroup", {
 		Name = tab.id,
-		Position = UDim2.fromOffset(SIDE_W, 0),
-		Size = UDim2.new(1, -SIDE_W, 1, 0),
+		Position = UDim2.fromOffset(G.SIDE_W, 0),
+		Size = UDim2.new(1, -G.SIDE_W, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		GroupTransparency = 1,
@@ -4281,11 +4290,11 @@ for i, tab in ipairs(TABS) do
 	text({ Text = tab.kicker, Font = F.Bold, TextSize = 11, TextColor3 = tab.accent, Position = UDim2.fromOffset(24, 22), Size = UDim2.new(1, -180, 0, 14), Parent = page })
 	local titleLabel = text({ Text = tab.title, Font = F.Heavy, TextSize = 26, Position = UDim2.fromOffset(24, 38), Size = UDim2.new(1, -170, 0, 30), TextTruncate = Enum.TextTruncate.AtEnd, Parent = page })
 	text({ Text = tab.sub, TextSize = 13, TextColor3 = C.Sub, Position = UDim2.fromOffset(24, 68), Size = UDim2.new(1, -60, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = page })
-	TabUI[i].motif, TabUI[i].motifScale, TabUI[i].motifParts, TabUI[i].title = motif, motifScale, motifParts, titleLabel
+	G.TabUI[i].motif, G.TabUI[i].motifScale, G.TabUI[i].motifParts, G.TabUI[i].title = motif, motifScale, motifParts, titleLabel
 
 	local body = make("ScrollingFrame", {
-		Position = UDim2.fromOffset(0, HEAD_H),
-		Size = UDim2.new(1, 0, 1, -HEAD_H),
+		Position = UDim2.fromOffset(0, G.HEAD_H),
+		Size = UDim2.new(1, 0, 1, -G.HEAD_H),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 3,
@@ -4296,13 +4305,13 @@ for i, tab in ipairs(TABS) do
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		Parent = page,
 	}, { pad(20, 4, 20, 24), list(Enum.FillDirection.Vertical, 8) })
-	Pages[i], Bodies[i] = page, body
+	G.Pages[i], G.Bodies[i] = page, body
 end
 
 -- área de arrastar a janela (topo do conteúdo + logo)
-local DragStrip = make("Frame", {
-	Position = UDim2.fromOffset(SIDE_W, 0),
-	Size = UDim2.new(1, -SIDE_W - 60, 0, 64),
+G.DragStrip = make("Frame", {
+	Position = UDim2.fromOffset(G.SIDE_W, 0),
+	Size = UDim2.new(1, -G.SIDE_W - 60, 0, 64),
 	BackgroundTransparency = 1,
 	Active = true,
 	Parent = Window,
@@ -4318,9 +4327,9 @@ local CloseBtn = make("TextButton", {
 	BorderSizePixel = 0,
 	Parent = Window,
 }, { corner("full") })
-local CloseBars = {}
+G.CloseBars = {}
 for _, rot in ipairs({ 45, -45 }) do
-	CloseBars[#CloseBars + 1] = make("Frame", {
+	G.CloseBars[#G.CloseBars + 1] = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(12, 2),
@@ -4332,43 +4341,43 @@ for _, rot in ipairs({ 45, -45 }) do
 end
 CloseBtn.MouseEnter:Connect(function()
 	tween(CloseBtn, 0.15, { BackgroundColor3 = C.Surface:Lerp(C.Warn, 0.3) })
-	for _, b in ipairs(CloseBars) do
+	for _, b in ipairs(G.CloseBars) do
 		tween(b, 0.15, { BackgroundColor3 = C.Text })
 	end
 end)
 CloseBtn.MouseLeave:Connect(function()
 	tween(CloseBtn, 0.2, { BackgroundColor3 = C.Surface2 })
-	for _, b in ipairs(CloseBars) do
+	for _, b in ipairs(G.CloseBars) do
 		tween(b, 0.2, { BackgroundColor3 = C.Sub })
 	end
 end)
 
 local function selectTab(i, instant)
-	if CurrentTab == i then
+	if G.CurrentTab == i then
 		return
 	end
-	local prev = CurrentTab
-	CurrentTab = i
+	local prev = G.CurrentTab
+	G.CurrentTab = i
 	local dir = (prev and i < prev) and -1 or 1
-	for j, page in ipairs(Pages) do
+	for j, page in ipairs(G.Pages) do
 		if j == i then
 			page.Visible = true
 			if instant or Prefs.reduceMotion then
 				if page:IsA("CanvasGroup") then
 					page.GroupTransparency = 0
 				end
-				page.Position = UDim2.fromOffset(SIDE_W, 0)
+				page.Position = UDim2.fromOffset(G.SIDE_W, 0)
 			else
 				if page:IsA("CanvasGroup") then
 					page.GroupTransparency = 1
 				end
-				page.Position = UDim2.fromOffset(SIDE_W, 24 * dir)
-				tween(page, 0.45, { GroupTransparency = 0, Position = UDim2.fromOffset(SIDE_W, 0) })
+				page.Position = UDim2.fromOffset(G.SIDE_W, 24 * dir)
+				tween(page, 0.45, { GroupTransparency = 0, Position = UDim2.fromOffset(G.SIDE_W, 0) })
 			end
 		elseif j == prev and not instant then
 			tween(page, 0.14, { GroupTransparency = 1 }, EASE.Quad)
 			task.delay(0.15, function()
-				if CurrentTab ~= j then
+				if G.CurrentTab ~= j then
 					page.Visible = false
 				end
 			end)
@@ -4377,9 +4386,9 @@ local function selectTab(i, instant)
 		end
 	end
 	local d = instant and 0 or 0.4
-	tween(Indicator, d, { Position = UDim2.fromOffset(0, (i - 1) * (TAB_H + TAB_GAP)), BackgroundColor3 = TABS[i].accent })
-	tween(IndicatorBar, d, { BackgroundColor3 = TABS[i].accent })
-	for j, t in ipairs(TabUI) do
+	tween(G.Indicator, d, { Position = UDim2.fromOffset(0, (i - 1) * (G.TAB_H + G.TAB_GAP)), BackgroundColor3 = TABS[i].accent })
+	tween(G.IndicatorBar, d, { BackgroundColor3 = TABS[i].accent })
+	for j, t in ipairs(G.TabUI) do
 		local sel = j == i
 		tween(t.label, d * 0.6, { TextColor3 = sel and C.Text or C.Sub })
 		tween(t.dot, d, {
@@ -4389,13 +4398,13 @@ local function selectTab(i, instant)
 	end
 	-- animação de entrada: desenho do cabeçalho + cartões em cascata
 	if not instant and not Prefs.reduceMotion then
-		local t = TabUI[i]
+		local t = G.TabUI[i]
 		t.motifScale.Scale = 0.6
 		t.motif.Rotation = -12
 		tween(t.motifScale, 0.6, { Scale = 1 }, EASE.Back)
 		tween(t.motif, 0.6, { Rotation = 0 }, EASE.Back)
 		local kids = {}
-		for _, k in ipairs(Bodies[i]:GetChildren()) do
+		for _, k in ipairs(G.Bodies[i]:GetChildren()) do
 			if k:IsA("GuiObject") and k.Visible then
 				kids[#kids + 1] = k
 			end
@@ -4421,19 +4430,19 @@ local function selectTab(i, instant)
 			Ext.TabEnter[i]()
 		end
 	end
-	if TabTick[i] then
-		TabTick[i]()
+	if G.TabTick[i] then
+		G.TabTick[i]()
 	end
 end
 
-for i, t in ipairs(TabUI) do
+for i, t in ipairs(G.TabUI) do
 	t.btn.Activated:Connect(function()
 		selectTab(i, false)
 	end)
 end
 
 -- linhas de opções do motor (Ajustes + Farm), para sincronizar estado
-local OptionRows = {}
+G.OptionRows = {}
 local function kindColor(kind, accent)
 	if kind == "on" then
 		return accent
@@ -4445,14 +4454,14 @@ local function kindColor(kind, accent)
 	return C.Dim
 end
 local function syncRows()
-	for id, r in pairs(OptionRows) do
+	for id, r in pairs(G.OptionRows) do
 		r.Set(Active[id])
 		local t, kind = statusOf(id)
 		r.SetStatus(t, kindColor(kind, r.accent))
 	end
 end
 
-local Refreshers = {}
+G.Refreshers = {}
 local scheduleSave -- definido junto do salvamento
 
 local function optionRow(parent, order, opt, accent, onToggle)
@@ -4486,15 +4495,15 @@ local function optionRow(parent, order, opt, accent, onToggle)
 	end
 	local r = SwitchRow(parent, order, cfg)
 	opt.stepper = r.stepper
-	OptionRows[opt.id] = r
+	G.OptionRows[opt.id] = r
 	return r
 end
 
 --------------------------------------------------------------------------
 -- ABA 1 · PRESETS
 --------------------------------------------------------------------------
-local FpsHistory, HIST = {}, 36
-local fpsValue, frameMs = 60, 16.7
+G.FpsHistory, G.HIST = {}, 36
+G.fpsValue, G.frameMs = 60, 16.7
 
 local function getPing()
 	local ok, v = pcall(function()
@@ -4516,8 +4525,8 @@ local function fpsColor(fps)
 	return fps >= 55 and C.Good or (fps >= 30 and C.Gold or C.Warn)
 end
 
-do
-	local tab, body = TABS[TI.presets], Bodies[TI.presets]
+Ext.run(function()
+	local tab, body = TABS[G.TI.presets], G.Bodies[G.TI.presets]
 	local A = tab.accent
 
 	-- cartão de desempenho ao vivo
@@ -4546,10 +4555,10 @@ do
 		Parent = perf,
 	}, { list(Enum.FillDirection.Horizontal, 2, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Bottom) })
 	local bars = {}
-	for i = 1, HIST do
+	for i = 1, G.HIST do
 		bars[i] = make("Frame", {
 			LayoutOrder = i,
-			Size = UDim2.new(1 / HIST, -2, 0.04, 0),
+			Size = UDim2.new(1 / G.HIST, -2, 0.04, 0),
 			BackgroundColor3 = A,
 			BackgroundTransparency = 0.65,
 			BorderSizePixel = 0,
@@ -4557,8 +4566,8 @@ do
 		}, { corner(2) })
 	end
 
-	TabTick[TI.presets] = function()
-		local fps = math.floor(fpsValue + 0.5)
+	G.TabTick[G.TI.presets] = function()
+		local fps = math.floor(G.fpsValue + 0.5)
 		fpsBig.Text = tostring(fps)
 		fpsBig.TextColor3 = fpsColor(fps)
 		local ping = getPing()
@@ -4566,15 +4575,15 @@ do
 		info.Text = (ping and ("Ping " .. math.floor(ping + 0.5) .. " ms  ·  ") or "")
 			.. n .. (n == 1 and " otimização ativa" or " otimizações ativas")
 		local maxv = 60
-		for _, v in ipairs(FpsHistory) do
+		for _, v in ipairs(G.FpsHistory) do
 			maxv = math.max(maxv, v)
 		end
-		local offset = HIST - #FpsHistory
-		for i = 1, HIST do
-			local v = FpsHistory[i - offset]
+		local offset = G.HIST - #G.FpsHistory
+		for i = 1, G.HIST do
+			local v = G.FpsHistory[i - offset]
 			local h = v and math.clamp(v / maxv, 0.04, 1) or 0.04
-			bars[i].Size = UDim2.new(1 / HIST, -2, h, 0)
-			bars[i].BackgroundTransparency = (i == HIST) and 0 or 0.65
+			bars[i].Size = UDim2.new(1 / G.HIST, -2, h, 0)
+			bars[i].BackgroundTransparency = (i == G.HIST) and 0 or 0.65
 			bars[i].BackgroundColor3 = v and fpsColor(v):Lerp(A, 0.5) or C.Surface2
 		end
 	end
@@ -4600,7 +4609,7 @@ do
 		}, { corner(18) })
 		local cst = stroke(C.White, 1.5, 0)
 		cst.Parent = card
-		make("UIGradient", { Rotation = 20, Color = BRAND, Parent = cst })
+		make("UIGradient", { Rotation = 20, Color = G.BRAND, Parent = cst })
 		make("UIScale", { Parent = card })
 		text({ Text = "FEITO PARA ESTE JOGO", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(18, 16), Size = UDim2.new(1, -36, 0, 14), Parent = card })
 		local gameLabel = text({ Text = "…", Font = F.Heavy, TextSize = 18, Position = UDim2.fromOffset(18, 32), Size = UDim2.new(1, -36, 0, 22), TextTruncate = Enum.TextTruncate.AtEnd, Parent = card })
@@ -4637,7 +4646,7 @@ do
 		local prog = make("Frame", { Position = UDim2.fromOffset(18, 166), Size = UDim2.new(1, -36, 0, 42), BackgroundTransparency = 1, Visible = false, Parent = card })
 		local progText = text({ Text = "", Font = F.Bold, TextSize = 12, TextColor3 = C.Text, Size = UDim2.new(1, -110, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = prog })
 		local progTrack = make("Frame", { Position = UDim2.fromOffset(0, 24), Size = UDim2.new(1, -110, 0, 6), BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = prog }, { corner("full") })
-		local progFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.White, BorderSizePixel = 0, Parent = progTrack }, { corner("full"), make("UIGradient", { Color = BRAND }) })
+		local progFill = make("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = C.White, BorderSizePixel = 0, Parent = progTrack }, { corner("full"), make("UIGradient", { Color = G.BRAND }) })
 		local cancelBtn = Button(prog, { text = "Cancelar", style = "ghost", size = UDim2.fromOffset(96, 32), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, 0, 0.5, 0) })
 
 		text({ Text = "Ao entrar neste jogo", Font = F.Bold, TextSize = 12, TextColor3 = C.Sub, Position = UDim2.fromOffset(18, 222), Size = UDim2.new(0.4, -18, 0, 28), Parent = card })
@@ -4754,7 +4763,7 @@ do
 			local list = {}
 			local seen = {}
 			for _, id in ipairs(ids) do
-				if not seen[id] and ById[id] and not NEVER[id] then
+				if not seen[id] and G.ById[id] and not NEVER[id] then
 					seen[id] = true
 					list[#list + 1] = id
 				end
@@ -4789,7 +4798,7 @@ do
 				end
 				step(T("Testando") .. ": " .. T(g.name), 0.08 + gi / #GROUPS * 0.62)
 				if g.quality then
-					setChoice(ById.quality, g.quality)
+					setChoice(G.ById.quality, g.quality)
 				end
 				local on = {}
 				for _, id in ipairs(g.ids) do
@@ -4800,7 +4809,7 @@ do
 				local fps = measure(1.6)
 				local items = 0
 				for _, id in ipairs(g.ids) do
-					items += Stat[id].items
+					items += G.Stat[id].items
 				end
 				results[gi] = { gain = fps - base, items = items }
 				local off = {}
@@ -4908,7 +4917,7 @@ do
 	})
 
 	local cards = {}
-	for i, p in ipairs(PRESETS) do
+	for i, p in ipairs(G.PRESETS) do
 		local card = make("Frame", {
 			LayoutOrder = i,
 			BackgroundColor3 = C.Surface,
@@ -4986,7 +4995,7 @@ do
 		cards[i] = { preset = p, card = card, stroke = st, btn = btn, pill = activePill, activeText = activeText, wasOn = false }
 	end
 
-	table.insert(Refreshers, function()
+	table.insert(G.Refreshers, function()
 		for _, c in ipairs(cards) do
 			c.card.Visible = not Prefs.hiddenPresets[c.preset.id]
 			local on = State.preset == c.preset
@@ -5023,13 +5032,13 @@ do
 		Size = UDim2.new(1, 0, 0, 28),
 		Parent = body,
 	})
-end
+end)
 
 --------------------------------------------------------------------------
 -- ABA 2 · AJUSTES
 --------------------------------------------------------------------------
-do
-	local tab, body = TABS[TI.tweaks], Bodies[TI.tweaks]
+Ext.run(function()
+	local tab, body = TABS[G.TI.tweaks], G.Bodies[G.TI.tweaks]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -5211,7 +5220,7 @@ do
 				end
 				local before = mem()
 				-- referências a objetos que já sumiram
-				for _, store in pairs(Saved) do
+				for _, store in pairs(G.Saved) do
 					for inst in pairs(store) do
 						if not inst.Parent then
 							store[inst] = nil
@@ -5269,7 +5278,7 @@ do
 	end)
 
 	local lastN = -1
-	table.insert(Refreshers, function()
+	table.insert(G.Refreshers, function()
 		local n = countActive(OPTIONS)
 		if n ~= lastN then
 			lastN = n
@@ -5277,13 +5286,13 @@ do
 			tween(pfill, 0.45, { Size = UDim2.fromScale(n / #OPTIONS, 1) })
 		end
 	end)
-end
+end)
 
 --------------------------------------------------------------------------
 -- ABA 3 · FARM
 --------------------------------------------------------------------------
-do
-	local tab, body = TABS[TI.farm], Bodies[TI.farm]
+Ext.run(function()
+	local tab, body = TABS[G.TI.farm], G.Bodies[G.TI.farm]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -5349,7 +5358,7 @@ do
 
 	local function farmStopAll(msg)
 		local map = {}
-		for _, opt in ipairs(FarmList) do
+		for _, opt in ipairs(G.FarmList) do
 			map[opt.id] = false
 		end
 		setOptions(map)
@@ -5362,7 +5371,7 @@ do
 	quick.Activated:Connect(function()
 		local map = { antiafk = true, reconnect = true, render3d = true, mute = true }
 		if Env.setfpscap then
-			setChoice(ById.fpscap, 15)
+			setChoice(G.ById.fpscap, 15)
 			map.fpscap = true
 		end
 		setOptions(map)
@@ -5371,7 +5380,7 @@ do
 	end)
 
 	local lastCat
-	for _, opt in ipairs(FarmList) do
+	for _, opt in ipairs(G.FarmList) do
 		if opt.cat ~= lastCat then
 			lastCat = opt.cat
 			Section(body, nextOrder(), opt.cat, A)
@@ -5383,11 +5392,11 @@ do
 
 	local pulseTween
 	local wasOn
-	TabTick[TI.farm] = function()
-		local on = FarmSince ~= nil
-		timer.Text = formatDuration(on and (os.clock() - FarmSince) or 0)
-		local n = countActive(FarmList)
-		caption.Text = n .. " " .. T("de") .. " " .. #FarmList .. " " .. T(n == 1 and "recurso ligado" or "recursos ligados")
+	G.TabTick[G.TI.farm] = function()
+		local on = G.FarmSince ~= nil
+		timer.Text = formatDuration(on and (os.clock() - G.FarmSince) or 0)
+		local n = countActive(G.FarmList)
+		caption.Text = n .. " " .. T("de") .. " " .. #G.FarmList .. " " .. T(n == 1 and "recurso ligado" or "recursos ligados")
 		if on ~= wasOn then
 			wasOn = on
 			stateL.Text = T(on and "Farm ativo" or "Farm desligado")
@@ -5411,13 +5420,13 @@ do
 			end
 		end
 	end
-	table.insert(Refreshers, TabTick[TI.farm])
-end
+	table.insert(G.Refreshers, G.TabTick[G.TI.farm])
+end)
 
 --------------------------------------------------------------------------
 -- HUD (painel flutuante)
 --------------------------------------------------------------------------
-local OVERLAYS = {
+G.OVERLAYS = {
 	{ id = "fps", label = "FPS", title = "FPS", desc = "Quadros por segundo", default = true },
 	{ id = "ping", label = "PING", title = "Ping", desc = "Latência até o servidor", default = true },
 	{ id = "server", label = "SERVIDOR", title = "Distância do servidor", desc = "Estimativa pela latência (o Roblox não informa a região)", default = false },
@@ -5429,16 +5438,16 @@ local OVERLAYS = {
 	{ id = "clock", label = "HORA", title = "Horário", desc = "Hora local", default = false },
 	{ id = "farm", label = "FARM", title = "Tempo de farm", desc = "Há quanto tempo o modo farm está ligado", default = false },
 }
-local OverlayOn = {}
-for _, o in ipairs(OVERLAYS) do
-	OverlayOn[o.id] = o.default
+G.OverlayOn = {}
+for _, o in ipairs(G.OVERLAYS) do
+	G.OverlayOn[o.id] = o.default
 end
-local HUD_SIZES = { 0.85, 1, 1.2 }
-local HUD_HOME = UDim2.fromOffset(16, TopInset + 12)
+G.HUD_SIZES = { 0.85, 1, 1.2 }
+G.HUD_HOME = UDim2.fromOffset(16, G.TopInset + 12)
 
 local Hud = make("Frame", {
 	Name = "Hud",
-	Position = HUD_HOME,
+	Position = G.HUD_HOME,
 	Size = UDim2.fromOffset(0, 0),
 	AutomaticSize = Enum.AutomaticSize.XY,
 	BackgroundColor3 = C.Bg,
@@ -5448,9 +5457,9 @@ local Hud = make("Frame", {
 	ZIndex = 2,
 	Parent = Gui,
 }, { corner(14), stroke(C.White, 1, 0.9), pad(14, 9, 14, 9) })
-local HudLayout = list(Enum.FillDirection.Vertical, 3)
-HudLayout.Parent = Hud
-local HudScale = make("UIScale", { Parent = Hud })
+G.HudLayout = list(Enum.FillDirection.Vertical, 3)
+G.HudLayout.Parent = Hud
+G.HudScale = make("UIScale", { Parent = Hud })
 makeDraggable(Hud, Hud, function(moved)
 	if moved then
 		clampInside(Hud)
@@ -5460,9 +5469,9 @@ makeDraggable(Hud, Hud, function(moved)
 	end
 end)
 
-local HudLabels = {}
-for i, o in ipairs(OVERLAYS) do
-	HudLabels[o.id] = text({
+G.HudLabels = {}
+for i, o in ipairs(G.OVERLAYS) do
+	G.HudLabels[o.id] = text({
 		LayoutOrder = i,
 		Text = "",
 		RichText = true,
@@ -5470,30 +5479,30 @@ for i, o in ipairs(OVERLAYS) do
 		TextSize = 14,
 		Size = UDim2.fromOffset(0, 0),
 		AutomaticSize = Enum.AutomaticSize.XY,
-		Visible = OverlayOn[o.id],
+		Visible = G.OverlayOn[o.id],
 		Parent = Hud,
 	})
 end
 
 local function applyHudPrefs()
 	local any = false
-	for id, lbl in pairs(HudLabels) do
-		lbl.Visible = OverlayOn[id]
-		any = any or OverlayOn[id]
+	for id, lbl in pairs(G.HudLabels) do
+		lbl.Visible = G.OverlayOn[id]
+		any = any or G.OverlayOn[id]
 	end
 	Hud.Visible = Prefs.hudVisible and any
-	HudLayout.FillDirection = Prefs.hudLayout == 2 and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
-	HudLayout.Padding = UDim.new(0, Prefs.hudLayout == 2 and 16 or 3)
-	tween(HudScale, 0.25, { Scale = HUD_SIZES[Prefs.hudSize] or 1 })
+	G.HudLayout.FillDirection = Prefs.hudLayout == 2 and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical
+	G.HudLayout.Padding = UDim.new(0, Prefs.hudLayout == 2 and 16 or 3)
+	tween(G.HudScale, 0.25, { Scale = G.HUD_SIZES[Prefs.hudSize] or 1 })
 end
 
-local Country
+-- G.Country fica em G
 task.spawn(function()
 	local ok, c = pcall(function()
 		return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
 	end)
 	if ok then
-		Country = c
+		G.Country = c
 	end
 end)
 
@@ -5501,7 +5510,7 @@ local function serverEstimate(ping)
 	if not ping then
 		return T("medindo…"), C.Dim
 	end
-	if Country == "BR" then
+	if G.Country == "BR" then
 		if ping <= 80 then
 			return T("perto · provável BR"), C.Good
 		end
@@ -5543,45 +5552,45 @@ function Ext.stability()
 	return T("Estável"), C.Good, jitter
 end
 
-local DIM_HEX = C.Dim:ToHex()
+G.DIM_HEX = C.Dim:ToHex()
 local function hudLine(label, value, color)
-	return string.format('<font color="#%s" size="11">%s</font>  <font color="#%s">%s</font>', DIM_HEX, label, (color or C.Text):ToHex(), value)
+	return string.format('<font color="#%s" size="11">%s</font>  <font color="#%s">%s</font>', G.DIM_HEX, label, (color or C.Text):ToHex(), value)
 end
 
 local function updateHud()
 	local texts = {}
-	local fps = math.floor(fpsValue + 0.5)
+	local fps = math.floor(G.fpsValue + 0.5)
 	texts.fps = hudLine("FPS", tostring(fps), fpsColor(fps))
-	local ping = (OverlayOn.ping or OverlayOn.server) and getPing() or nil
-	if OverlayOn.ping then
+	local ping = (G.OverlayOn.ping or G.OverlayOn.server) and getPing() or nil
+	if G.OverlayOn.ping then
 		texts.ping = hudLine("PING", ping and (math.floor(ping + 0.5) .. " ms") or "—",
 			ping and (ping <= 80 and C.Good or (ping <= 150 and C.Gold or C.Warn)) or C.Dim)
 	end
-	if OverlayOn.server then
+	if G.OverlayOn.server then
 		local st, sc = serverEstimate(ping)
 		texts.server = hudLine(T("SERVIDOR"), st, sc)
 	end
-	if OverlayOn.stability then
+	if G.OverlayOn.stability then
 		local st, sc = Ext.stability()
 		texts.stability = hudLine(T("ESTABILIDADE"), st, sc)
 	end
-	if OverlayOn.ram then
+	if G.OverlayOn.ram then
 		local okm, mem = pcall(function()
 			return Stats:GetTotalMemoryUsageMb()
 		end)
 		texts.ram = hudLine("RAM", okm and (fmtNum(mem) .. " MB") or "—")
 	end
-	texts.frametime = hudLine(T("QUADRO"), string.format("%.1f ms", frameMs))
+	texts.frametime = hudLine(T("QUADRO"), string.format("%.1f ms", G.frameMs))
 	texts.players = hudLine(T("JOGADORES"), #Players:GetPlayers() .. "/" .. Players.MaxPlayers)
 	texts.preset = hudLine("PRESET", State.preset and State.preset.name or T("nenhum"), State.preset and State.preset.accent or C.Dim)
-	if OverlayOn.clock then
+	if G.OverlayOn.clock then
 		local okc, clock = pcall(function()
 			return DateTime.now():FormatLocalTime("HH:mm", "pt-br")
 		end)
 		texts.clock = hudLine(T("HORA"), okc and clock or "—")
 	end
-	texts.farm = hudLine("FARM", FarmSince and formatDuration(os.clock() - FarmSince) or T("desligado"), FarmSince and C.Peach or C.Dim)
-	for id, lbl in pairs(HudLabels) do
+	texts.farm = hudLine("FARM", G.FarmSince and formatDuration(os.clock() - G.FarmSince) or T("desligado"), G.FarmSince and C.Peach or C.Dim)
+	for id, lbl in pairs(G.HudLabels) do
 		if lbl.Visible and texts[id] and lbl.Text ~= texts[id] then
 			lbl.Text = texts[id]
 		end
@@ -5591,10 +5600,10 @@ end
 --------------------------------------------------------------------------
 -- ABA 4 · HUD
 --------------------------------------------------------------------------
-local OverlayRows = {}
-local HudControls = {}
-do
-	local tab, body = TABS[TI.hud], Bodies[TI.hud]
+G.OverlayRows = {}
+G.HudControls = {}
+Ext.run(function()
+	local tab, body = TABS[G.TI.hud], G.Bodies[G.TI.hud]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -5603,7 +5612,7 @@ do
 	end
 
 	Section(body, nextOrder(), "PAINEL", A)
-	HudControls.visible = SwitchRow(body, nextOrder(), {
+	G.HudControls.visible = SwitchRow(body, nextOrder(), {
 		title = "Mostrar painel",
 		desc = "Liga ou esconde o painel inteiro",
 		accent = A,
@@ -5616,7 +5625,7 @@ do
 		end,
 	})
 	local layoutRow = Row(body, nextOrder(), { title = "Formato", desc = "Em lista ou numa linha só", accent = A, rightWidth = 190, pressable = false })
-	HudControls.layout = Segmented(layoutRow.frame, {
+	G.HudControls.layout = Segmented(layoutRow.frame, {
 		items = { "Lista", "Linha" },
 		index = Prefs.hudLayout,
 		accent = A,
@@ -5630,7 +5639,7 @@ do
 		end,
 	})
 	local sizeRow = Row(body, nextOrder(), { title = "Tamanho", desc = "Tamanho do texto no painel", accent = A, rightWidth = 150, pressable = false })
-	HudControls.size = Stepper(sizeRow.frame, {
+	G.HudControls.size = Stepper(sizeRow.frame, {
 		choices = { 1, 2, 3 },
 		index = Prefs.hudSize,
 		fmt = function(v)
@@ -5650,7 +5659,7 @@ do
 		anchor = Vector2.new(1, 0.5),
 		position = UDim2.new(1, -16, 0.5, 0),
 	}).Activated:Connect(function()
-		tween(Hud, 0.45, { Position = HUD_HOME })
+		tween(Hud, 0.45, { Position = G.HUD_HOME })
 		scheduleSave()
 	end)
 
@@ -5658,8 +5667,8 @@ do
 	local master
 	local function syncMaster()
 		local all = true
-		for _, o in ipairs(OVERLAYS) do
-			all = all and OverlayOn[o.id]
+		for _, o in ipairs(G.OVERLAYS) do
+			all = all and G.OverlayOn[o.id]
 		end
 		master.Set(all)
 	end
@@ -5668,23 +5677,23 @@ do
 		desc = "Liga ou desliga todas as informações de uma vez",
 		accent = A,
 		onToggle = function(v)
-			for _, o in ipairs(OVERLAYS) do
-				OverlayOn[o.id] = v
-				OverlayRows[o.id].Set(v)
+			for _, o in ipairs(G.OVERLAYS) do
+				G.OverlayOn[o.id] = v
+				G.OverlayRows[o.id].Set(v)
 			end
 			applyHudPrefs()
 			updateHud()
 			scheduleSave()
 		end,
 	})
-	for _, o in ipairs(OVERLAYS) do
-		OverlayRows[o.id] = SwitchRow(body, nextOrder(), {
+	for _, o in ipairs(G.OVERLAYS) do
+		G.OverlayRows[o.id] = SwitchRow(body, nextOrder(), {
 			title = o.title,
 			desc = o.desc,
 			accent = A,
-			initial = OverlayOn[o.id],
+			initial = G.OverlayOn[o.id],
 			onToggle = function(v)
-				OverlayOn[o.id] = v
+				G.OverlayOn[o.id] = v
 				syncMaster()
 				applyHudPrefs()
 				updateHud()
@@ -5693,8 +5702,8 @@ do
 		})
 	end
 	syncMaster()
-	HudControls.syncMaster = syncMaster
-end
+	G.HudControls.syncMaster = syncMaster
+end)
 
 --------------------------------------------------------------------------
 -- COMPONENTES EXTRAS (cartões das abas novas)
@@ -5772,8 +5781,8 @@ end)
 --------------------------------------------------------------------------
 -- ABA · HOME
 --------------------------------------------------------------------------
-do
-	local tab, body = TABS[TI.home], Bodies[TI.home]
+Ext.run(function()
+	local tab, body = TABS[G.TI.home], G.Bodies[G.TI.home]
 	local A = tab.accent
 	local premium = false
 	pcall(function()
@@ -5803,7 +5812,7 @@ do
 	}, { corner("full") })
 	local ringStroke = stroke(C.White, 3, 0)
 	ringStroke.Parent = ring
-	local ringGrad = make("UIGradient", { Color = BRAND, Parent = ringStroke })
+	local ringGrad = make("UIGradient", { Color = G.BRAND, Parent = ringStroke })
 	local avatar = make("ImageLabel", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
@@ -5882,17 +5891,17 @@ do
 		if n > 0 then
 			out[#out + 1] = { n .. " " .. T(n == 1 and "ajuste" or "ajustes"), C.Gold }
 		end
-		if FarmSince then
+		if G.FarmSince then
 			out[#out + 1] = { T("Farm ativo"), C.Peach }
 		end
-		local v = countActive(VISUAL_OPTIONS)
+		local v = countActive(G.VISUAL_OPTIONS)
 		if v > 0 then
 			out[#out + 1] = { v .. " " .. T(v == 1 and "efeito visual" or "efeitos visuais"), C.Pink }
 		end
 		if Audio.needed() or Audio.mult.voice ~= 1 then
 			out[#out + 1] = { T("Áudio personalizado"), C.Rose }
 		end
-		local pr = countActive(PROTECT_LIST)
+		local pr = countActive(G.PROTECT_LIST)
 		if pr > 0 then
 			out[#out + 1] = { pr .. " " .. T(pr == 1 and "proteção" or "proteções"), C.Terra }
 		end
@@ -6012,8 +6021,8 @@ do
 		end
 	end)
 
-	TabTick[TI.home] = function()
-		local fps = math.floor(fpsValue + 0.5)
+	G.TabTick[G.TI.home] = function()
+		local fps = math.floor(G.fpsValue + 0.5)
 		statL.fps.Text = tostring(fps)
 		statL.fps.TextColor3 = fpsColor(fps)
 		local ping = getPing()
@@ -6031,22 +6040,22 @@ do
 		sessionL.Text = formatDuration(os.clock() - Ext.sessionStart)
 		if Ext.streamer then
 			nameL.Text, userL.Text = T("Jogador"), "@••••••"
-			TabUI[TI.home].title.Text = T("Olá!")
+			G.TabUI[G.TI.home].title.Text = T("Olá!")
 		else
 			nameL.Text, userL.Text = LocalPlayer.DisplayName, "@" .. LocalPlayer.Name
-			TabUI[TI.home].title.Text = T("Olá") .. ", " .. LocalPlayer.DisplayName .. "!"
+			G.TabUI[G.TI.home].title.Text = T("Olá") .. ", " .. LocalPlayer.DisplayName .. "!"
 		end
 		streamPill.Visible = Ext.streamer == true
 		refreshUsing()
 	end
-	table.insert(Refreshers, refreshUsing)
-end
+	table.insert(G.Refreshers, refreshUsing)
+end)
 
 --------------------------------------------------------------------------
 -- ABA · SERVER
 --------------------------------------------------------------------------
-do
-	local tab, body = TABS[TI.server], Bodies[TI.server]
+Ext.run(function()
+	local tab, body = TABS[G.TI.server], G.Bodies[G.TI.server]
 	local A = tab.accent
 
 	track(TeleportService.TeleportInitFailed:Connect(function(plr, _, msg)
@@ -6252,7 +6261,7 @@ do
 		TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
 	})
 
-	TabTick[TI.server] = function()
+	G.TabTick[G.TI.server] = function()
 		gameL.Text = Ext.gameName ~= "" and Ext.gameName or T("Este jogo")
 		jobL.Text = "ID: " .. (Ext.streamer and "••••••••" or (game.JobId ~= "" and string.sub(game.JobId, 1, 18) .. "…" or T("servidor de teste")))
 		local ping = getPing()
@@ -6263,14 +6272,14 @@ do
 		cols[4].Text = formatDuration(Workspace.DistributedGameTime)
 		regionL.Text = (serverEstimate(ping))
 	end
-end
+end)
 
 --------------------------------------------------------------------------
 -- ABA · VISUAL
 --------------------------------------------------------------------------
-local SHOT_HOLDS = { 2, 3, 5 }
-do
-	local tab, body = TABS[TI.visual], Bodies[TI.visual]
+G.SHOT_HOLDS = { 2, 3, 5 }
+Ext.run(function()
+	local tab, body = TABS[G.TI.visual], G.Bodies[G.TI.visual]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -6318,10 +6327,10 @@ do
 		end
 		previewL.Text = table.concat(parts, "  ·  ")
 	end
-	table.insert(Refreshers, paintPreview)
+	table.insert(G.Refreshers, paintPreview)
 
 	local lastCat
-	for _, opt in ipairs(VISUAL_OPTIONS) do
+	for _, opt in ipairs(G.VISUAL_OPTIONS) do
 		if opt.cat ~= lastCat then
 			lastCat = opt.cat
 			Section(body, nextOrder(), opt.cat, A)
@@ -6361,7 +6370,7 @@ do
 
 	-- galeria de visuais
 	Section(body, nextOrder(), "GALERIA", A)
-	local LOOK = { ById.vis_time, ById.vis_fullbright, ById.vis_sky, ById.vis_shader }
+	local LOOK = { G.ById.vis_time, G.ById.vis_fullbright, G.ById.vis_sky, G.ById.vis_shader }
 	local BUILTIN = {
 		{ name = "Pôr do sol", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 4, vis_sky = 3, vis_shader = 1 } } },
 		{ name = "Noite neon", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 5, vis_sky = 5, vis_shader = 4 } } },
@@ -6494,7 +6503,7 @@ do
 		choices = { 1, 2, 3 },
 		index = Prefs.shotHold,
 		fmt = function(v)
-			return SHOT_HOLDS[v] .. " s"
+			return G.SHOT_HOLDS[v] .. " s"
 		end,
 		onChange = function(v)
 			Prefs.shotHold = v
@@ -6507,13 +6516,13 @@ do
 			Ext.takeShot()
 		end
 	end)
-end
+end)
 
 --------------------------------------------------------------------------
 -- ABA · ÁUDIO
 --------------------------------------------------------------------------
-do
-	local tab, body = TABS[TI.audio], Bodies[TI.audio]
+Ext.run(function()
+	local tab, body = TABS[G.TI.audio], G.Bodies[G.TI.audio]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -6567,7 +6576,7 @@ do
 		voiceL.Text = Audio.voiceCount > 0 and (Audio.voiceCount .. " " .. T("vozes no servidor")) or T("Sem voice novo neste servidor")
 	end
 	Ext.TabEnter = Ext.TabEnter or {}
-	Ext.TabEnter[TI.audio] = function()
+	Ext.TabEnter[G.TI.audio] = function()
 		Audio.applyVoice()
 		paintEq(true)
 	end
@@ -6716,14 +6725,14 @@ do
 		end
 		paintEq(false)
 	end
-	table.insert(Refreshers, Ext.syncAudioUI)
-end
+	table.insert(G.Refreshers, Ext.syncAudioUI)
+end)
 
 --------------------------------------------------------------------------
 -- ABA · PROTEÇÃO
 --------------------------------------------------------------------------
-do
-	local tab, body = TABS[TI.protect], Bodies[TI.protect]
+Ext.run(function()
+	local tab, body = TABS[G.TI.protect], G.Bodies[G.TI.protect]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -6746,8 +6755,8 @@ do
 	local allBtn = Button(card, { text = "Ligar todas", style = "filled", accent = A, size = UDim2.fromOffset(136, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -18, 0.5, 0) })
 	allBtn.Activated:Connect(function()
 		local map = {}
-		local anyOff = countActive(PROTECT_LIST) < #PROTECT_LIST
-		for _, opt in ipairs(PROTECT_LIST) do
+		local anyOff = countActive(G.PROTECT_LIST) < #G.PROTECT_LIST
+		for _, opt in ipairs(G.PROTECT_LIST) do
 			map[opt.id] = anyOff
 		end
 		setOptions(map)
@@ -6756,11 +6765,11 @@ do
 	local pulses = {}
 	local lastOn
 	local function paint()
-		local n = countActive(PROTECT_LIST)
+		local n = countActive(G.PROTECT_LIST)
 		local on = n > 0
 		stateL.Text = T(on and "Protegido" or "Sem proteção")
-		countL.Text = n .. " " .. T("de") .. " " .. #PROTECT_LIST .. " " .. T("proteções ativas")
-		allBtn.SetStyle(n < #PROTECT_LIST and "filled" or "tinted", n < #PROTECT_LIST and "Ligar todas" or "Desligar todas")
+		countL.Text = n .. " " .. T("de") .. " " .. #G.PROTECT_LIST .. " " .. T("proteções ativas")
+		allBtn.SetStyle(n < #G.PROTECT_LIST and "filled" or "tinted", n < #G.PROTECT_LIST and "Ligar todas" or "Desligar todas")
 		if on ~= lastOn then
 			lastOn = on
 			tween(body_, 0.4, { BackgroundColor3 = on and A or C.Off })
@@ -6783,9 +6792,9 @@ do
 			end
 		end
 	end
-	table.insert(Refreshers, paint)
+	table.insert(G.Refreshers, paint)
 	Ext.TabEnter = Ext.TabEnter or {}
-	Ext.TabEnter[TI.protect] = function()
+	Ext.TabEnter[G.TI.protect] = function()
 		check1.Size = UDim2.fromOffset(5, 0)
 		check2.Size = UDim2.fromOffset(5, 0)
 		tween(check1, 0.3, { Size = UDim2.fromOffset(5, 16) }, EASE.Quad)
@@ -6795,7 +6804,7 @@ do
 	end
 
 	local lastCat
-	for _, opt in ipairs(PROTECT_LIST) do
+	for _, opt in ipairs(G.PROTECT_LIST) do
 		local cat = opt.cat == "PRIVACIDADE" and "PRIVACIDADE" or "PROTEÇÃO"
 		if cat ~= lastCat then
 			lastCat = cat
@@ -6811,13 +6820,13 @@ do
 		Text = "Sobre anti-kick: bloquear o kick do próprio jogo é burlar a moderação, então não é feito aqui. O Reconectar sozinho te devolve ao jogo se você cair.",
 		TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
 	})
-end
+end)
 
 --------------------------------------------------------------------------
 -- SALVAR / CARREGAR
 --------------------------------------------------------------------------
-local Loading = false
-local savePending = false
+G.Loading = false
+G.savePending = false
 
 local function writeSave()
 	if not Env.canSave then
@@ -6840,39 +6849,39 @@ local function writeSave()
 			end
 		end
 		data.farm = {}
-		for id in pairs(FarmIds) do
+		for id in pairs(G.FarmIds) do
 			data.farm[id] = Active[id] == true
 		end
 		data.choices = {}
-		for _, l in ipairs({ OPTIONS, FARM_OPTIONS, VISUAL_OPTIONS }) do
+		for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS }) do
 			for _, opt in ipairs(l) do
 				if opt.choices then
 					data.choices[opt.id] = opt.choices[opt.choiceIndex]
 				end
 			end
 		end
-		data.overlays = OverlayOn
+		data.overlays = G.OverlayOn
 		data.hudPos = { Hud.Position.X.Offset, Hud.Position.Y.Offset }
-		data.visual = Ext.captureList(VISUAL_OPTIONS)
+		data.visual = Ext.captureList(G.VISUAL_OPTIONS)
 		data.hl = Ext.hl
 		data.audio = Audio.capture()
-		data.protect = Ext.captureList(PROTECT_LIST)
+		data.protect = Ext.captureList(G.PROTECT_LIST)
 	end
 	local ok, json = pcall(function()
 		return HttpService:JSONEncode(data)
 	end)
 	if ok then
-		pcall(Env.writefile, SAVE_FILE, json)
+		pcall(Env.writefile, G.SAVE_FILE, json)
 	end
 end
 
 scheduleSave = function()
-	if Loading or not Env.canSave or savePending then
+	if G.Loading or not Env.canSave or G.savePending then
 		return
 	end
-	savePending = true
+	G.savePending = true
 	task.delay(0.5, function()
-		savePending = false
+		G.savePending = false
 		if not Destroyed then
 			writeSave()
 		end
@@ -6880,11 +6889,11 @@ scheduleSave = function()
 end
 
 local function loadSave()
-	local data = SaveData
+	local data = G.SaveData
 	if type(data) ~= "table" or not Prefs.remember then
 		return
 	end
-	Loading = true
+	G.Loading = true
 	if type(data.hl) == "table" then
 		for k, v in pairs(data.hl) do
 			if Ext.hl[k] ~= nil and type(v) == "number" then
@@ -6893,7 +6902,7 @@ local function loadSave()
 		end
 	end
 	if type(data.choices) == "table" then
-		for _, l in ipairs({ OPTIONS, FARM_OPTIONS, VISUAL_OPTIONS }) do
+		for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS }) do
 			for _, opt in ipairs(l) do
 				local v = opt.choices and data.choices[opt.id]
 				if v ~= nil then
@@ -6904,18 +6913,18 @@ local function loadSave()
 	end
 	if type(data.overlays) == "table" then
 		for id, v in pairs(data.overlays) do
-			if OverlayOn[id] ~= nil then
-				OverlayOn[id] = v == true
-				OverlayRows[id].Set(v == true)
+			if G.OverlayOn[id] ~= nil then
+				G.OverlayOn[id] = v == true
+				G.OverlayRows[id].Set(v == true)
 			end
 		end
-		HudControls.syncMaster()
+		G.HudControls.syncMaster()
 	end
 	if type(data.hudPos) == "table" and type(data.hudPos[1]) == "number" and type(data.hudPos[2]) == "number" then
 		Hud.Position = UDim2.fromOffset(data.hudPos[1], data.hudPos[2])
 	end
 	local preset
-	for _, p in ipairs(PRESETS) do
+	for _, p in ipairs(G.PRESETS) do
 		if p.id == data.preset then
 			preset = p
 		end
@@ -6924,12 +6933,12 @@ local function loadSave()
 		local keepQuality = type(data.choices) == "table" and data.choices.quality
 		applyPreset(preset)
 		if keepQuality then
-			setChoice(ById.quality, keepQuality)
+			setChoice(G.ById.quality, keepQuality)
 		end
 	elseif type(data.options) == "table" then
 		local map = {}
 		for _, id in ipairs(data.options) do
-			if ById[id] and not FarmIds[id] and not ById[id].locked then
+			if G.ById[id] and not G.FarmIds[id] and not G.ById[id].locked then
 				map[id] = true
 			end
 		end
@@ -6939,34 +6948,34 @@ local function loadSave()
 		local map = {}
 		for id, v in pairs(data.farm) do
 			-- antiafk e reconnect vieram do Farm antigo: continuam valendo
-			if ById[id] and v == true and not ById[id].locked then
+			if G.ById[id] and v == true and not G.ById[id].locked then
 				map[id] = true
 			end
 		end
 		setOptions(map)
 	end
 	if type(data.visual) == "table" then
-		Ext.applyList(VISUAL_OPTIONS, data.visual)
+		Ext.applyList(G.VISUAL_OPTIONS, data.visual)
 	end
 	if type(data.protect) == "table" then
-		Ext.applyList(PROTECT_LIST, data.protect)
+		Ext.applyList(G.PROTECT_LIST, data.protect)
 	end
 	if type(data.audio) == "table" then
 		Audio.load(data.audio)
 	end
-	Loading = false
+	G.Loading = false
 end
 
 --------------------------------------------------------------------------
 -- ABRIR / FECHAR + BOTÃO FLUTUANTE
 --------------------------------------------------------------------------
-local isOpen = false
-local openSerial = 0
+G.isOpen = false
+G.openSerial = 0
 
 local function fitWindow()
 	local vp = viewportSize()
-	local s = math.min(1, (vp.X - 24) / WIN_W, (vp.Y - 24) / WIN_H)
-	FitScale.Scale = math.max(0.45, s)
+	local s = math.min(1, (vp.X - 24) / G.WIN_W, (vp.Y - 24) / G.WIN_H)
+	G.FitScale.Scale = math.max(0.45, s)
 end
 
 local Fab = make("Frame", {
@@ -6977,7 +6986,7 @@ local Fab = make("Frame", {
 	ZIndex = 6,
 	Parent = Gui,
 })
-local FabPop = make("UIScale", { Scale = 0, Parent = Fab })
+G.FabPop = make("UIScale", { Scale = 0, Parent = Fab })
 local FabUI = {}
 FabUI.ring = make("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5),
@@ -6988,7 +6997,7 @@ FabUI.ring = make("Frame", {
 	BorderSizePixel = 0,
 	Parent = Fab,
 }, { corner("full") })
-local FabBtn = make("TextButton", {
+G.FabBtn = make("TextButton", {
 	Text = "",
 	AutoButtonColor = false,
 	Size = UDim2.fromScale(1, 1),
@@ -6998,26 +7007,26 @@ local FabBtn = make("TextButton", {
 	Parent = Fab,
 }, { corner("full") })
 FabUI.stroke = stroke(C.White, 2, 0.1)
-FabUI.stroke.Parent = FabBtn
-FabUI.grad = make("UIGradient", { Rotation = 45, Color = BRAND, Parent = FabUI.stroke })
-FabUI.mark = sparkleShape(FabBtn, 26, C.Salmon:Lerp(C.White, 0.3))
+FabUI.stroke.Parent = G.FabBtn
+FabUI.grad = make("UIGradient", { Rotation = 45, Color = G.BRAND, Parent = FabUI.stroke })
+FabUI.mark = sparkleShape(G.FabBtn, 26, C.Salmon:Lerp(C.White, 0.3))
 FabUI.mark.Position = UDim2.fromScale(0.5, 0.5)
-FabUI.mini = sparkleShape(FabBtn, 10, C.Gold)
+FabUI.mini = sparkleShape(G.FabBtn, 10, C.Gold)
 FabUI.mini.Position = UDim2.new(0.5, 11, 0.5, -11)
-FabUI.press = make("UIScale", { Parent = FabBtn })
+FabUI.press = make("UIScale", { Parent = G.FabBtn })
 
-FabBtn.MouseEnter:Connect(function()
+G.FabBtn.MouseEnter:Connect(function()
 	tween(FabUI.press, 0.2, { Scale = 1.06 })
 end)
-FabBtn.MouseLeave:Connect(function()
+G.FabBtn.MouseLeave:Connect(function()
 	tween(FabUI.press, 0.25, { Scale = 1 })
 end)
-FabBtn.InputBegan:Connect(function(i)
+G.FabBtn.InputBegan:Connect(function(i)
 	if isPress(i) then
 		tween(FabUI.press, 0.1, { Scale = 0.9 }, EASE.Quad)
 	end
 end)
-FabBtn.InputEnded:Connect(function(i)
+G.FabBtn.InputEnded:Connect(function(i)
 	if isPress(i) then
 		tween(FabUI.press, 0.45, { Scale = 1 }, EASE.Back)
 	end
@@ -7033,12 +7042,12 @@ local function fabRipple()
 end
 
 local function setOpen(v)
-	if v == isOpen or Destroyed then
+	if v == G.isOpen or Destroyed then
 		return
 	end
-	isOpen = v
-	openSerial += 1
-	local my = openSerial
+	G.isOpen = v
+	G.openSerial += 1
+	local my = G.openSerial
 	fabRipple()
 	tween(FabUI.mark, 0.5, { Rotation = v and 135 or 0 }, EASE.Back)
 	tween(FabUI.grad, 0.6, { Rotation = v and 225 or 45 })
@@ -7046,34 +7055,34 @@ local function setOpen(v)
 	if v then
 		fitWindow()
 		if not Root.Visible then
-			AnimScale.Scale = 0.92
-			Holder.Position = UDim2.fromOffset(0, 16)
+			G.AnimScale.Scale = 0.92
+			G.Holder.Position = UDim2.fromOffset(0, 16)
 		end
 		Root.Visible = true
-		tween(AnimScale, 0.5, { Scale = 1 }, EASE.Back)
-		tween(Holder, 0.45, { Position = UDim2.new() })
+		tween(G.AnimScale, 0.5, { Scale = 1 }, EASE.Back)
+		tween(G.Holder, 0.45, { Position = UDim2.new() })
 		tween(Window, 0.28, { GroupTransparency = 0 }, EASE.Quad)
-		for _, s in ipairs(Shadows) do
+		for _, s in ipairs(G.Shadows) do
 			tween(s.frame, 0.35, { BackgroundTransparency = s.shown })
 		end
 		if Hooks.changed then
 			Hooks.changed()
 		end
-		if TabTick[CurrentTab] then
-			TabTick[CurrentTab]()
+		if G.TabTick[G.CurrentTab] then
+			G.TabTick[G.CurrentTab]()
 		end
 		task.delay(0.05, function()
 			clampInside(Root, 80)
 		end)
 	else
-		tween(AnimScale, 0.2, { Scale = 0.95 }, EASE.Quad, DIR.In)
-		tween(Holder, 0.2, { Position = UDim2.fromOffset(0, 10) }, EASE.Quad, DIR.In)
+		tween(G.AnimScale, 0.2, { Scale = 0.95 }, EASE.Quad, DIR.In)
+		tween(G.Holder, 0.2, { Position = UDim2.fromOffset(0, 10) }, EASE.Quad, DIR.In)
 		tween(Window, 0.18, { GroupTransparency = 1 }, EASE.Quad)
-		for _, s in ipairs(Shadows) do
+		for _, s in ipairs(G.Shadows) do
 			tween(s.frame, 0.18, { BackgroundTransparency = 1 })
 		end
 		task.delay(Prefs.reduceMotion and 0 or 0.21, function()
-			if openSerial == my and not isOpen and not Destroyed then
+			if G.openSerial == my and not G.isOpen and not Destroyed then
 				Root.Visible = false
 			end
 		end)
@@ -7089,7 +7098,7 @@ local function snapFab()
 	local rel = Fab.AbsolutePosition - Gui.AbsolutePosition
 	local size = Fab.AbsoluteSize
 	local x = (rel.X + size.X / 2) < vp.X / 2 and 14 or (vp.X - size.X - 14)
-	local y = math.clamp(rel.Y, TopInset + 8, math.max(TopInset + 8, vp.Y - size.Y - 14))
+	local y = math.clamp(rel.Y, G.TopInset + 8, math.max(G.TopInset + 8, vp.Y - size.Y - 14))
 	tween(Fab, 0.5, { Position = UDim2.fromOffset(x, y) }, EASE.Back)
 end
 
@@ -7102,7 +7111,7 @@ FabUI.charge = make("Frame", {
 	BackgroundTransparency = 0.4,
 	BorderSizePixel = 0,
 	ZIndex = 0,
-	Parent = FabBtn,
+	Parent = G.FabBtn,
 }, { corner("full") })
 
 -- engrenagem: abre o painel rápido (perfis, botão, presets visíveis)
@@ -7117,13 +7126,13 @@ FabUI.gear = make("TextButton", {
 	ZIndex = 3,
 	Parent = Fab,
 }, { corner("full"), stroke(C.Stroke, 1, 0) })
-do
+Ext.run(function()
 	for k = 0, 2 do
 		make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(4, 16), Rotation = k * 60, BackgroundColor3 = C.Sub, BorderSizePixel = 0, Parent = FabUI.gear }, { corner(1) })
 	end
 	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = C.Sub, BorderSizePixel = 0, Parent = FabUI.gear }, { corner("full") })
 	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = FabUI.gear }, { corner("full") })
-end
+end)
 FabUI.gear.Activated:Connect(function()
 	tween(FabUI.gear, 0.5, { Rotation = FabUI.gear.Rotation + 120 }, EASE.Back)
 	if Ext.openPanel then
@@ -7131,13 +7140,13 @@ FabUI.gear.Activated:Connect(function()
 	end
 end)
 
-local FAB_SIZES, FAB_ALPHA = { 46, 56, 66 }, { 1, 0.8, 0.6, 0.4 }
+G.FAB_SIZES, G.FAB_ALPHA = { 46, 56, 66 }, { 1, 0.8, 0.6, 0.4 }
 function Ext.applyFab()
-	local sz = FAB_SIZES[Prefs.fabSize] or 56
+	local sz = G.FAB_SIZES[Prefs.fabSize] or 56
 	tween(Fab, 0.35, { Size = UDim2.fromOffset(sz, sz) }, EASE.Back)
 	FabUI.mark.Size = UDim2.fromOffset(math.floor(sz * 0.46), math.floor(sz * 0.46))
-	local a = FAB_ALPHA[Prefs.fabAlpha] or 1
-	FabBtn.BackgroundTransparency = 1 - 0.95 * a
+	local a = G.FAB_ALPHA[Prefs.fabAlpha] or 1
+	G.FabBtn.BackgroundTransparency = 1 - 0.95 * a
 	FabUI.stroke.Transparency = 1 - 0.9 * a
 	for _, holder in ipairs({ FabUI.mark, FabUI.mini, FabUI.gear }) do
 		for _, d in ipairs(holder:GetDescendants()) do
@@ -7155,7 +7164,7 @@ function Ext.applyFab()
 end
 
 local fabHold = { token = 0, fired = false }
-FabBtn.InputBegan:Connect(function(i)
+G.FabBtn.InputBegan:Connect(function(i)
 	if not isPress(i) then
 		return
 	end
@@ -7163,7 +7172,7 @@ FabBtn.InputBegan:Connect(function(i)
 	local my = fabHold.token
 	fabHold.fired = false
 	local startPos = Fab.Position
-	local dur = SHOT_HOLDS[Prefs.shotHold] or 5
+	local dur = G.SHOT_HOLDS[Prefs.shotHold] or 5
 	task.spawn(function()
 		task.wait(0.4) -- toque rápido não mostra a carga
 		if fabHold.token ~= my then
@@ -7190,19 +7199,19 @@ FabBtn.InputBegan:Connect(function(i)
 		end
 	end)
 end)
-FabBtn.InputEnded:Connect(function(i)
+G.FabBtn.InputEnded:Connect(function(i)
 	if isPress(i) and not fabHold.fired then
 		fabHold.token += 1
 	end
 end)
 
-makeDraggable(FabBtn, Fab, function(moved)
+makeDraggable(G.FabBtn, Fab, function(moved)
 	if moved then
 		snapFab()
 	elseif fabHold.fired then
 		fabHold.fired = false -- a print já foi tirada: não abre o menu
 	else
-		setOpen(not isOpen)
+		setOpen(not G.isOpen)
 	end
 end)
 
@@ -7222,8 +7231,8 @@ function Ext.takeShot()
 	task.spawn(function()
 		local cinema = Prefs.shotMode == 2
 		Gui.Enabled = false
-		if BlackGui then
-			BlackGui.Enabled = false
+		if G.BlackGui then
+			G.BlackGui.Enabled = false
 		end
 		local coreTypes = {
 			Enum.CoreGuiType.PlayerList, Enum.CoreGuiType.Chat, Enum.CoreGuiType.Backpack,
@@ -7301,8 +7310,8 @@ function Ext.takeShot()
 				StarterGui:SetCoreGuiEnabled(t, v)
 			end)
 		end
-		if BlackGui then
-			BlackGui.Enabled = true
+		if G.BlackGui then
+			G.BlackGui.Enabled = true
 		end
 		Gui.Enabled = true
 		Ext.shotBusy = false
@@ -7313,12 +7322,12 @@ function Ext.takeShot()
 		end
 	end)
 end
-makeDraggable(DragStrip, Root, function(moved)
+makeDraggable(G.DragStrip, Root, function(moved)
 	if moved then
 		clampInside(Root, 80)
 	end
 end)
-makeDraggable(Brand, Root, function(moved)
+makeDraggable(G.Brand, Root, function(moved)
 	if moved then
 		clampInside(Root, 80)
 	end
@@ -7332,7 +7341,7 @@ track(UserInputService.InputBegan:Connect(function(input, processed)
 		return Enum.KeyCode[Prefs.keybind]
 	end)
 	if ok and input.KeyCode == key then
-		setOpen(not isOpen)
+		setOpen(not G.isOpen)
 	end
 end))
 
@@ -7350,9 +7359,9 @@ end))
 --------------------------------------------------------------------------
 -- ABA 5 · CONFIGURAÇÕES
 --------------------------------------------------------------------------
-local ConfigRows = {}
-do
-	local tab, body = TABS[TI.config], Bodies[TI.config]
+G.ConfigRows = {}
+Ext.run(function()
+	local tab, body = TABS[G.TI.config], G.Bodies[G.TI.config]
 	local A = tab.accent
 	local order = 0
 	local function nextOrder()
@@ -7361,7 +7370,7 @@ do
 	end
 
 	Section(body, nextOrder(), "GERAL", A)
-	ConfigRows.remember = SwitchRow(body, nextOrder(), {
+	G.ConfigRows.remember = SwitchRow(body, nextOrder(), {
 		title = "Lembrar minhas escolhas",
 		desc = Env.canSave and "Reaplica presets, ajustes, farm e HUD ao executar de novo"
 			or "Indisponível: precisa de executor (writefile)",
@@ -7377,7 +7386,7 @@ do
 			toast(v and "Suas escolhas serão lembradas" or "Escolhas não serão mais lembradas", v and A or C.Sub)
 		end,
 	})
-	ConfigRows.openOnStart = SwitchRow(body, nextOrder(), {
+	G.ConfigRows.openOnStart = SwitchRow(body, nextOrder(), {
 		title = "Abrir o menu ao iniciar",
 		desc = "Mostra esta janela logo depois do carregamento",
 		accent = A,
@@ -7394,7 +7403,7 @@ do
 		rightWidth = 200,
 		pressable = false,
 	})
-	ConfigRows.lang = Segmented(langRow.frame, {
+	G.ConfigRows.lang = Segmented(langRow.frame, {
 		items = { "Português", "English" },
 		index = Prefs.lang == "en" and 2 or 1,
 		accent = A,
@@ -7407,7 +7416,7 @@ do
 			toast(i == 2 and "Language changes the next time you run the script" or "O idioma muda na próxima execução", A)
 		end,
 	})
-	ConfigRows.notify = SwitchRow(body, nextOrder(), {
+	G.ConfigRows.notify = SwitchRow(body, nextOrder(), {
 		title = "Notificações",
 		desc = "Avisos no topo da tela ao salvar e aplicar (erros sempre aparecem)",
 		accent = A,
@@ -7417,7 +7426,7 @@ do
 			scheduleSave()
 		end,
 	})
-	ConfigRows.reduceMotion = SwitchRow(body, nextOrder(), {
+	G.ConfigRows.reduceMotion = SwitchRow(body, nextOrder(), {
 		title = "Reduzir animações",
 		desc = "Troca transições por mudanças instantâneas",
 		accent = A,
@@ -7434,13 +7443,13 @@ do
 		rightWidth = 160,
 		pressable = false,
 	})
-	local keyIndex = table.find(KEY_LIST, Prefs.keybind) or 1
-	ConfigRows.key = Stepper(keyRow.frame, {
-		choices = KEY_LIST,
+	local keyIndex = table.find(G.KEY_LIST, Prefs.keybind) or 1
+	G.ConfigRows.key = Stepper(keyRow.frame, {
+		choices = G.KEY_LIST,
 		index = keyIndex,
 		width = 132,
 		fmt = function(v)
-			return KEY_NAMES[v] or v
+			return G.KEY_NAMES[v] or v
 		end,
 		onChange = function(v)
 			Prefs.keybind = v
@@ -7542,13 +7551,13 @@ do
 			Prefs[k] = v
 		end
 		table.clear(Prefs.hiddenPresets)
-		for k, o in pairs(OverlayOn) do
-			OverlayOn[k] = k == "fps" or k == "ping"
-			OverlayRows[k].Set(OverlayOn[k])
+		for k, o in pairs(G.OverlayOn) do
+			G.OverlayOn[k] = k == "fps" or k == "ping"
+			G.OverlayRows[k].Set(G.OverlayOn[k])
 		end
-		HudControls.syncMaster()
+		G.HudControls.syncMaster()
 		if Env.delfile then
-			pcall(Env.delfile, SAVE_FILE)
+			pcall(Env.delfile, G.SAVE_FILE)
 		end
 		if Ext.applyPrefsToUI then
 			Ext.applyPrefsToUI()
@@ -7601,18 +7610,18 @@ do
 		Size = UDim2.new(1, 0, 0, 36),
 		Parent = body,
 	})
-end
+end)
 
 local function applyPrefsToUI()
-	ConfigRows.remember.Set(Prefs.remember)
-	ConfigRows.openOnStart.Set(Prefs.openOnStart)
-	ConfigRows.reduceMotion.Set(Prefs.reduceMotion)
-	ConfigRows.notify.Set(Prefs.notify)
-	ConfigRows.lang.Set(Prefs.lang == "en" and 2 or 1, true)
-	ConfigRows.key.Set(table.find(KEY_LIST, Prefs.keybind) or 1, true)
-	HudControls.visible.Set(Prefs.hudVisible)
-	HudControls.layout.Set(Prefs.hudLayout, true)
-	HudControls.size.Set(Prefs.hudSize, true)
+	G.ConfigRows.remember.Set(Prefs.remember)
+	G.ConfigRows.openOnStart.Set(Prefs.openOnStart)
+	G.ConfigRows.reduceMotion.Set(Prefs.reduceMotion)
+	G.ConfigRows.notify.Set(Prefs.notify)
+	G.ConfigRows.lang.Set(Prefs.lang == "en" and 2 or 1, true)
+	G.ConfigRows.key.Set(table.find(G.KEY_LIST, Prefs.keybind) or 1, true)
+	G.HudControls.visible.Set(Prefs.hudVisible)
+	G.HudControls.layout.Set(Prefs.hudLayout, true)
+	G.HudControls.size.Set(Prefs.hudSize, true)
 	Ext.shotModeSeg.Set(Prefs.shotMode, true)
 	Ext.shotHoldStepper.Set(Prefs.shotHold, true)
 	Ext.hlColorStepper.Set(Ext.hl.color, true)
@@ -7629,7 +7638,7 @@ Ext.applyPrefsToUI = applyPrefsToUI
 -- desliga tudo de todas as abas (Restaurar tudo / Reset de fábrica)
 function Ext.restoreEverything()
 	local map = {}
-	for _, l in ipairs({ OPTIONS, FARM_OPTIONS, VISUAL_OPTIONS, PROTECT_LIST }) do
+	for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS, G.PROTECT_LIST }) do
 		for _, opt in ipairs(l) do
 			map[opt.id] = false
 		end
@@ -7652,17 +7661,17 @@ end
 --------------------------------------------------------------------------
 local function refreshBadges()
 	local nOpt = countActive(OPTIONS)
-	local nVis = countActive(VISUAL_OPTIONS)
-	local nPro = countActive(PROTECT_LIST)
+	local nVis = countActive(G.VISUAL_OPTIONS)
+	local nPro = countActive(G.PROTECT_LIST)
 	local values = {
 		presets = State.preset and State.preset.name or "",
 		tweaks = nOpt > 0 and tostring(nOpt) or "",
-		farm = FarmSince and "ON" or "",
+		farm = G.FarmSince and "ON" or "",
 		visual = nVis > 0 and tostring(nVis) or "",
 		audio = (Audio.needed() or Audio.mult.voice ~= 1) and "ON" or "",
 		protect = nPro > 0 and tostring(nPro) or "",
 	}
-	for i, t in ipairs(TabUI) do
+	for i, t in ipairs(G.TabUI) do
 		local v = values[TABS[i].id] or ""
 		if t.badgeText.Text ~= v then
 			t.badgeText.Text = v
@@ -7677,7 +7686,7 @@ Hooks.changed = function()
 	end
 	syncRows()
 	refreshBadges()
-	for _, f in ipairs(Refreshers) do
+	for _, f in ipairs(G.Refreshers) do
 		f()
 	end
 	scheduleSave()
@@ -7696,7 +7705,7 @@ local function Tick()
 		end
 	end
 	if Ext.homeSpin then
-		local spin = isOpen and CurrentTab == TI.home and not Prefs.reduceMotion
+		local spin = G.isOpen and G.CurrentTab == G.TI.home and not Prefs.reduceMotion
 		if spin ~= Ext.homeSpinning then
 			Ext.homeSpinning = spin
 			if spin then
@@ -7709,31 +7718,31 @@ local function Tick()
 	if Hud.Visible then
 		updateHud()
 	end
-	if isOpen then
+	if G.isOpen then
 		syncRows()
-		if TabTick[CurrentTab] then
-			TabTick[CurrentTab]()
+		if G.TabTick[G.CurrentTab] then
+			G.TabTick[G.CurrentTab]()
 		end
 	end
 end
 
-do
+Ext.run(function()
 	local acc, frames = 0, 0
 	track(RunService.RenderStepped:Connect(function(dt)
 		acc += dt
 		frames += 1
 		if acc >= 0.5 then
-			fpsValue = frames / acc
-			frameMs = acc / frames * 1000
+			G.fpsValue = frames / acc
+			G.frameMs = acc / frames * 1000
 			acc, frames = 0, 0
-			table.insert(FpsHistory, fpsValue)
-			if #FpsHistory > HIST then
-				table.remove(FpsHistory, 1)
+			table.insert(G.FpsHistory, G.fpsValue)
+			if #G.FpsHistory > G.HIST then
+				table.remove(G.FpsHistory, 1)
 			end
 			Tick()
 		end
 	end))
-end
+end)
 
 --------------------------------------------------------------------------
 -- JANELAS SOBREPOSTAS: painel rápido (engrenagem) e novidades
@@ -7809,8 +7818,11 @@ function Ext.modal(w, h, accent)
 end
 
 -- NOVIDADES -------------------------------------------------------------------
-do
+Ext.run(function()
 	local CHANGELOG = {
+		{ v = "6.2", items = {
+			"Corrigido o erro \"Out of local registers\" no Delta e em outros executores",
+		} },
 		{ v = "6.1", items = {
 			"Modo leve no celular: a interface não usa mais CanvasGroup no mobile",
 			"Se algo der errado ao abrir, aparece um aviso na tela com o motivo",
@@ -7883,10 +7895,10 @@ do
 		end
 		burst(m.card, UDim2.fromOffset(44, 44), 6, 40)
 	end
-end
+end)
 
 -- PAINEL RÁPIDO (engrenagem) ---------------------------------------------------
-do
+Ext.run(function()
 	local A = C.Salmon
 	local m = Ext.modal(420, 500, A)
 	text({ Text = "PAINEL RÁPIDO", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(22, 22), Size = UDim2.new(1, -90, 0, 14), Parent = m.card })
@@ -7917,17 +7929,17 @@ do
 		if id == "tweaks" then
 			return Ext.captureTweaks()
 		elseif id == "farm" then
-			return Ext.captureList(FarmList)
+			return Ext.captureList(G.FarmList)
 		elseif id == "visual" then
-			local c = Ext.captureList(VISUAL_OPTIONS)
+			local c = Ext.captureList(G.VISUAL_OPTIONS)
 			c.hl = table.clone(Ext.hl)
 			return c
 		elseif id == "audio" then
 			return Audio.capture()
 		elseif id == "protect" then
-			return Ext.captureList(PROTECT_LIST)
+			return Ext.captureList(G.PROTECT_LIST)
 		elseif id == "hud" then
-			return { overlays = table.clone(OverlayOn), visible = Prefs.hudVisible, layout = Prefs.hudLayout, size = Prefs.hudSize }
+			return { overlays = table.clone(G.OverlayOn), visible = Prefs.hudVisible, layout = Prefs.hudLayout, size = Prefs.hudSize }
 		end
 		return nil
 	end
@@ -7938,7 +7950,7 @@ do
 		if id == "tweaks" then
 			Ext.applyTweaks(cap)
 		elseif id == "farm" then
-			Ext.applyList(FarmList, cap)
+			Ext.applyList(G.FarmList, cap)
 		elseif id == "visual" then
 			if type(cap.hl) == "table" then
 				for k, v in pairs(cap.hl) do
@@ -7948,22 +7960,22 @@ do
 				end
 				Ext.hlRestyle()
 			end
-			Ext.applyList(VISUAL_OPTIONS, cap)
+			Ext.applyList(G.VISUAL_OPTIONS, cap)
 		elseif id == "audio" then
 			Audio.load(cap)
 		elseif id == "protect" then
-			Ext.applyList(PROTECT_LIST, cap)
+			Ext.applyList(G.PROTECT_LIST, cap)
 		elseif id == "hud" then
 			for k, v in pairs(type(cap.overlays) == "table" and cap.overlays or {}) do
-				if OverlayOn[k] ~= nil then
-					OverlayOn[k] = v == true
-					OverlayRows[k].Set(v == true)
+				if G.OverlayOn[k] ~= nil then
+					G.OverlayOn[k] = v == true
+					G.OverlayRows[k].Set(v == true)
 				end
 			end
 			Prefs.hudVisible = cap.visible ~= false
 			Prefs.hudLayout = type(cap.layout) == "number" and cap.layout or 1
 			Prefs.hudSize = type(cap.size) == "number" and cap.size or 2
-			HudControls.syncMaster()
+			G.HudControls.syncMaster()
 		end
 	end
 
@@ -8111,7 +8123,7 @@ do
 		choices = { 1, 2, 3, 4 },
 		index = Prefs.fabAlpha,
 		fmt = function(v)
-			return math.floor(FAB_ALPHA[v] * 100 + 0.5) .. "%"
+			return math.floor(G.FAB_ALPHA[v] * 100 + 0.5) .. "%"
 		end,
 		onChange = function(v)
 			Prefs.fabAlpha = v
@@ -8123,7 +8135,7 @@ do
 	-- quais presets aparecem na aba Presets
 	Section(body, nextOrder(), "PRESETS NA TELA", A)
 	local presetRows = {}
-	for _, p in ipairs(PRESETS) do
+	for _, p in ipairs(G.PRESETS) do
 		presetRows[p.id] = SwitchRow(body, nextOrder(), {
 			title = p.name,
 			desc = "Mostrar este preset na aba Presets",
@@ -8146,23 +8158,23 @@ do
 		end
 		m.Show()
 	end
-end
+end)
 
 --------------------------------------------------------------------------
 -- LIMPEZA
 --------------------------------------------------------------------------
-local CleanedUp = false
+G.CleanedUp = false
 destroyAll = function()
-	if CleanedUp then
+	if G.CleanedUp then
 		return
 	end
-	CleanedUp = true
+	G.CleanedUp = true
 	Destroyed = true
 	for _, c in ipairs(Connections) do
 		c:Disconnect()
 	end
 	table.clear(Connections)
-	for _, l in ipairs({ OPTIONS, FARM_OPTIONS }) do
+	for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS }) do
 		for _, opt in ipairs(l) do
 			clearWatchers(opt.id)
 			if Active[opt.id] then
@@ -8174,9 +8186,9 @@ destroyAll = function()
 			restore(opt, true)
 		end
 	end
-	if BlackGui then
-		BlackGui:Destroy()
-		BlackGui = nil
+	if G.BlackGui then
+		G.BlackGui:Destroy()
+		G.BlackGui = nil
 	end
 	Gui:Destroy()
 	if type(_G.__SillyOptimizer) == "table" and _G.__SillyOptimizer.owner == Gui then
@@ -8195,18 +8207,18 @@ _G.__SillyOptimizer = { Destroy = destroyAll, owner = Gui }
 -- INÍCIO
 --------------------------------------------------------------------------
 Splash.step("Montando interface", 0.72)
-selectTab(TI.home, true)
+selectTab(G.TI.home, true)
 Splash.step("Carregando preferências", 0.88)
 loadSave()
 applyPrefsToUI()
 -- preset salvo para este jogo (benchmark ou "Meu preset")
-do
+Ext.run(function()
 	local e = Ext.Games[Ext.GKEY]
 	if type(e) == "table" and e.auto and type(e[e.auto]) == "table" then
 		Ext.applyTweaks(e[e.auto])
 		Ext.autoApplied = e.auto
 	end
-end
+end)
 Hooks.changed()
 updateHud()
 if Ext.refreshGameCard then
@@ -8217,14 +8229,14 @@ Splash.finish()
 if not Destroyed then
 	task.wait(0.15)
 	fitWindow()
-	TweenService:Create(FabPop, TweenInfo.new(0.55, EASE.Back), { Scale = 1 }):Play()
+	TweenService:Create(G.FabPop, TweenInfo.new(0.55, EASE.Back), { Scale = 1 }):Play()
 	task.delay(0.3, fabRipple)
 	if Prefs.openOnStart then
 		task.delay(0.1, function()
 			setOpen(true)
 		end)
 	end
-	local hint = Env.touch and T("toque no botão flutuante para abrir") or (T(KEY_NAMES[Prefs.keybind] or Prefs.keybind) .. " " .. T("abre o menu"))
+	local hint = Env.touch and T("toque no botão flutuante para abrir") or (T(G.KEY_NAMES[Prefs.keybind] or Prefs.keybind) .. " " .. T("abre o menu"))
 	toast(T("Silly Optimizer pronto") .. " · " .. hint, C.Salmon)
 	if Ext.autoApplied then
 		local names = { competitive = "Competitivo", performance = "Desempenho", custom = "Meu preset" }
@@ -8319,3 +8331,4 @@ if not okMain then
 		end
 	end)
 end
+
