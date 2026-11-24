@@ -1,5 +1,5 @@
 --[[
-	Silly Optimizer  ·  v6.2
+	Silly Optimizer  ·  v6.3
 	FPS booster e utilitários para Roblox (Luau) — celular e PC
 
 	Como usar
@@ -22,7 +22,7 @@ local function SillyMain()
 -- estado e peças da interface ficam em G (poupa variáveis locais: alguns executores têm limite baixo)
 local G = {}
 
-local VERSION = "6.2"
+local VERSION = "6.3"
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -198,6 +198,47 @@ end
 
 -- tradução: o texto em português é a chave; sem tradução, fica em português
 local EN = { -- EN_DICT
+	["Otimização"] = "Optimization",
+	["Personalizar"] = "Customize",
+	["Servidores"] = "Servers",
+	["Amigos"] = "Friends",
+	["Geral"] = "General",
+	["Perfis"] = "Profiles",
+	["Botão"] = "Button",
+	["Reentre ou ache um servidor melhor"] = "Rejoin or find a better server",
+	["AMIGOS"] = "FRIENDS",
+	["Quem está online, entrar no servidor deles e convidar"] = "Who's online, join their server and invite",
+	["Salve e aplique configurações de todas as abas"] = "Save and apply setups from every tab",
+	["BOTÃO"] = "BUTTON",
+	["Tamanho, opacidade e presets visíveis"] = "Size, opacity and visible presets",
+	["AGORA"] = "NOW",
+	["Convidar amigos"] = "Invite friends",
+	["Este jogo não permite convites"] = "This game doesn't allow invites",
+	["JOGANDO AGORA"] = "PLAYING NOW",
+	["ONLINE"] = "ONLINE",
+	["No app do Roblox"] = "In the Roblox app",
+	["Jogando"] = "Playing",
+	["No site"] = "On the website",
+	["No Studio"] = "In Studio",
+	["No Xbox"] = "On Xbox",
+	["No Team Create"] = "In Team Create",
+	["Online"] = "Online",
+	["Vocês já estão no mesmo servidor"] = "You're already in the same server",
+	["O servidor desse amigo é privado"] = "This friend's server is private",
+	["Não foi possível carregar"] = "Couldn't load",
+	["Ninguém mais online"] = "Nobody else online",
+	["amigo online"] = "friend online",
+	["amigos online"] = "friends online",
+	["jogando agora"] = "playing now",
+	["online"] = "online",
+	["jogando"] = "playing",
+	["Ver amigos"] = "See friends",
+	["Segure o botão flutuante sem mover para tirar uma print limpa. O modo e o tempo ficam em Personalizar › Visual."] = "Hold the floating button without moving it for a clean screenshot. Mode and timing are in Customize › Look.",
+	["Menu lateral com 6 abas, ícones e botões maiores"] = "Sidebar with 6 tabs, icons and bigger buttons",
+	["Sub-abas horizontais dentro de Otimização, Personalizar, Servidor e Configurações"] = "Horizontal sub-tabs inside Optimization, Customize, Server and Settings",
+	["Nova sub-aba Amigos: quem está online, entrar no servidor e convidar"] = "New Friends sub-tab: who's online, join their server and invite",
+	["Perfis e botão flutuante agora ficam em Configurações (sem engrenagem no botão)"] = "Profiles and floating button now live in Settings (no gear on the button)",
+	["Troca de abas sem páginas encavaladas"] = "Tab switching without overlapping pages",
 	["Preparando…"] = "Getting ready…",
 	["Tudo pronto"] = "All set",
 	["Carregando tema e fontes"] = "Loading theme and fonts",
@@ -3955,9 +3996,10 @@ end
 --------------------------------------------------------------------------
 -- JANELA
 --------------------------------------------------------------------------
-G.WIN_W, G.WIN_H = 760, 520
-G.SIDE_W, G.HEAD_H = 184, 96
-G.TAB_H, G.TAB_GAP = 36, 2
+G.WIN_W, G.WIN_H = 790, 520
+G.SIDE_W, G.HEAD_H = 206, 96
+G.TAB_H, G.TAB_GAP = 54, 6
+G.SUB_Y = 58
 
 -- cada aba tem a própria cor de destaque (sempre pastel)
 local TABS = {
@@ -3969,8 +4011,10 @@ local TABS = {
 	  title = "Ajustes individuais", sub = "Ligado = otimização aplicada · Desligado = visual original" },
 	{ id = "farm", name = "Farm", kicker = "MODO FARM", accent = C.Peach,
 	  title = "Deixe rodando leve", sub = "Fique no jogo gastando o mínimo de bateria e calor" },
-	{ id = "server", name = "Server", kicker = "SERVER", accent = C.Butter,
-	  title = "Servidor", sub = "Reentre, ache um servidor melhor ou chame amigos" },
+	{ id = "server", name = "Servidores", kicker = "SERVER", accent = C.Butter,
+	  title = "Servidor", sub = "Reentre ou ache um servidor melhor" },
+	{ id = "friends", name = "Amigos", kicker = "AMIGOS", accent = C.Butter,
+	  title = "Amigos", sub = "Quem está online, entrar no servidor deles e convidar" },
 	{ id = "visual", name = "Visual", kicker = "VISUAL", accent = C.Pink,
 	  title = "Deixe do seu jeito", sub = "Horário, céu, shaders, câmera, destaque e print limpa" },
 	{ id = "audio", name = "Áudio", kicker = "ÁUDIO", accent = C.Rose,
@@ -3979,8 +4023,12 @@ local TABS = {
 	  title = "Jogue tranquilo", sub = "Anti-fling, anti-AFK, reconexão e privacidade" },
 	{ id = "hud", name = "HUD", kicker = "HUD", accent = C.Blush,
 	  title = "Informações na tela", sub = "Escolha o que aparece no painel flutuante" },
-	{ id = "config", name = "Configurações", kicker = "CONFIGURAÇÕES", accent = C.Apricot,
+	{ id = "config", name = "Geral", kicker = "CONFIGURAÇÕES", accent = C.Apricot,
 	  title = "Preferências", sub = "Idioma, notificações, salvamento e compatibilidade" },
+	{ id = "profiles", name = "Perfis", kicker = "PERFIS", accent = C.Apricot,
+	  title = "Perfis", sub = "Salve e aplique configurações de todas as abas" },
+	{ id = "fab", name = "Botão", kicker = "BOTÃO", accent = C.Apricot,
+	  title = "Botão flutuante", sub = "Tamanho, opacidade e presets visíveis" },
 }
 G.TI = {}
 for i, t in ipairs(TABS) do
@@ -4228,52 +4276,162 @@ function Ext.buildMotif(page, tab)
 	return m, sc, parts
 end
 
-for i, tab in ipairs(TABS) do
+-- grupos do menu lateral; cada grupo tem sub-abas horizontais
+local GROUPS = {
+	{ id = "home", name = "Home", icon = "home", accent = C.Coral, subs = { "home" } },
+	{ id = "optimize", name = "Otimização", icon = "bolt", accent = C.Salmon, subs = { "presets", "tweaks", "farm" } },
+	{ id = "custom", name = "Personalizar", icon = "palette", accent = C.Pink, subs = { "visual", "audio", "hud" } },
+	{ id = "server", name = "Servidor", icon = "server", accent = C.Butter, subs = { "server", "friends" } },
+	{ id = "protect", name = "Proteção", icon = "shield", accent = C.Terra, subs = { "protect" } },
+	{ id = "settings", name = "Configurações", icon = "gear", accent = C.Apricot, subs = { "config", "profiles", "fab" } },
+}
+G.groupOf, G.subPos, G.groupSub, G.pageY, G.SubBars, G.MainUI = {}, {}, {}, {}, {}, {}
+for gi, grp in ipairs(GROUPS) do
+	for k, id in ipairs(grp.subs) do
+		G.groupOf[G.TI[id]] = gi
+		G.subPos[G.TI[id]] = k
+	end
+	G.groupSub[gi] = G.TI[grp.subs[1]]
+end
+G.TabHolder.CanvasSize = UDim2.fromOffset(0, #GROUPS * (G.TAB_H + G.TAB_GAP))
+
+-- ícones desenhados com formas (nítidos em qualquer tela)
+function Ext.drawIcon(parent, kind)
+	local holder = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(20, 20),
+		BackgroundTransparency = 1,
+		Parent = parent,
+	})
+	local fg, holes = {}, {}
+	local function part(x, y, w, h, r, rot, hole)
+		local f = make("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0.5, x, 0.5, y),
+			Size = UDim2.fromOffset(w, h),
+			Rotation = rot or 0,
+			BorderSizePixel = 0,
+			Parent = holder,
+		}, { corner(r or 2) })
+		table.insert(hole and holes or fg, f)
+		return f
+	end
+	if kind == "home" then
+		part(0, -3, 12, 12, 2, 45)
+		part(0, 4, 15, 10, 2)
+		part(0, 6, 4, 6, 1, 0, true)
+	elseif kind == "bolt" then
+		part(2, -5, 5, 12, 1, 22)
+		part(0, 0, 12, 4, 1)
+		part(-2, 5, 5, 12, 1, 22)
+	elseif kind == "palette" then
+		part(0, 0, 19, 19, "full")
+		part(-4, -3, 4, 4, "full", 0, true)
+		part(1, -5, 4, 4, "full", 0, true)
+		part(5, -1, 4, 4, "full", 0, true)
+		part(2, 5, 6, 6, "full", 0, true)
+	elseif kind == "server" then
+		part(0, -5, 18, 7, 2)
+		part(0, 5, 18, 7, 2)
+		part(5, -5, 3, 3, "full", 0, true)
+		part(5, 5, 3, 3, "full", 0, true)
+		part(-3, -5, 7, 2, 1, 0, true)
+		part(-3, 5, 7, 2, 1, 0, true)
+	elseif kind == "shield" then
+		part(0, -3, 16, 12, 4)
+		part(0, 3, 12, 12, 2, 45)
+		part(-2, 1, 3, 6, 1, -45, true)
+		part(2, -1, 3, 10, 1, 40, true)
+	else
+		for k = 0, 2 do
+			part(0, 0, 5, 20, 1, k * 60)
+		end
+		part(0, 0, 14, 14, "full")
+		part(0, 0, 6, 6, "full", 0, true)
+	end
+	return holder, fg, holes
+end
+
+local selectTab -- definido logo abaixo
+
+-- botões do menu lateral (um por grupo): ícone + nome + selo
+for gi, grp in ipairs(GROUPS) do
 	local b = make("TextButton", {
 		Text = "",
 		AutoButtonColor = false,
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(0, (i - 1) * (G.TAB_H + G.TAB_GAP)),
+		Position = UDim2.fromOffset(0, (gi - 1) * (G.TAB_H + G.TAB_GAP)),
 		Size = UDim2.new(1, 0, 0, G.TAB_H),
 		Parent = G.TabHolder,
 	})
-	local dot = make("Frame", {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0, 20, 0.5, 0),
-		Size = UDim2.fromOffset(6, 6),
-		BackgroundColor3 = tab.accent:Lerp(C.Side, 0.55),
+	local tile = make("Frame", {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 10, 0.5, 0),
+		Size = UDim2.fromOffset(36, 36),
+		BackgroundColor3 = C.Surface2,
 		BorderSizePixel = 0,
 		Parent = b,
-	}, { corner("full") })
+	}, { corner(12) })
+	local tileScale = make("UIScale", { Parent = tile })
+	local _, fg, holes = Ext.drawIcon(tile, grp.icon)
+	for _, f in ipairs(fg) do
+		f.BackgroundColor3 = grp.accent
+	end
+	for _, f in ipairs(holes) do
+		f.BackgroundColor3 = C.Surface2
+	end
 	local label = text({
-		Text = tab.name,
+		Text = grp.name,
 		Font = F.Bold,
-		TextSize = 14,
+		TextSize = 15,
 		TextColor3 = C.Sub,
-		Position = UDim2.fromOffset(34, 0),
-		Size = UDim2.new(1, -40, 1, 0),
+		Position = UDim2.fromOffset(58, 0),
+		Size = UDim2.new(1, -62, 1, 0),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = b,
 	})
-	local badge, badgeText = Pill(b, "", tab.accent, 8)
+	local badge, badgeText = Pill(b, "", grp.accent, 8)
 	badge.Size = UDim2.fromOffset(0, 18)
 	badge.Visible = false
+	local sc = make("UIScale", { Parent = b })
 	b.MouseEnter:Connect(function()
-		if G.CurrentTab ~= i then
+		if G.groupOf[G.CurrentTab] ~= gi then
 			tween(label, 0.15, { TextColor3 = C.Text })
 		end
 	end)
 	b.MouseLeave:Connect(function()
-		if G.CurrentTab ~= i then
+		if G.groupOf[G.CurrentTab] ~= gi then
 			tween(label, 0.2, { TextColor3 = C.Sub })
 		end
+		tween(sc, 0.2, { Scale = 1 })
 	end)
-	G.TabUI[i] = { btn = b, dot = dot, label = label, badge = badge, badgeText = badgeText }
+	b.InputBegan:Connect(function(i)
+		if isPress(i) then
+			tween(sc, 0.1, { Scale = 0.96 }, EASE.Quad)
+		end
+	end)
+	b.InputEnded:Connect(function(i)
+		if isPress(i) then
+			tween(sc, 0.35, { Scale = 1 }, EASE.Back)
+		end
+	end)
+	b.Activated:Connect(function()
+		selectTab(G.groupSub[gi], false)
+	end)
+	G.MainUI[gi] = { btn = b, tile = tile, tileScale = tileScale, fg = fg, holes = holes, label = label, badge = badge, badgeText = badgeText }
+end
 
+-- páginas (uma por sub-aba)
+for i, tab in ipairs(TABS) do
+	local grp = GROUPS[G.groupOf[i]]
+	local grouped = #grp.subs > 1
+	G.pageY[i] = grouped and G.SUB_Y or 0
+	G.TabUI[i] = {}
 	local page = make("CanvasGroup", {
 		Name = tab.id,
-		Position = UDim2.fromOffset(G.SIDE_W, 0),
-		Size = UDim2.new(1, -G.SIDE_W, 1, 0),
+		Position = UDim2.fromOffset(G.SIDE_W, G.pageY[i]),
+		Size = UDim2.new(1, -G.SIDE_W, 1, -G.pageY[i]),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		GroupTransparency = 1,
@@ -4285,16 +4443,21 @@ for i, tab in ipairs(TABS) do
 		BackgroundColor3 = tab.accent,
 		BorderSizePixel = 0,
 		Parent = page,
-	}, { make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(0.86, 1) }) })
+	}, { make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(grouped and 0.9 or 0.86, 1) }) })
 	local motif, motifScale, motifParts = Ext.buildMotif(page, tab)
-	text({ Text = tab.kicker, Font = F.Bold, TextSize = 11, TextColor3 = tab.accent, Position = UDim2.fromOffset(24, 22), Size = UDim2.new(1, -180, 0, 14), Parent = page })
-	local titleLabel = text({ Text = tab.title, Font = F.Heavy, TextSize = 26, Position = UDim2.fromOffset(24, 38), Size = UDim2.new(1, -170, 0, 30), TextTruncate = Enum.TextTruncate.AtEnd, Parent = page })
-	text({ Text = tab.sub, TextSize = 13, TextColor3 = C.Sub, Position = UDim2.fromOffset(24, 68), Size = UDim2.new(1, -60, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = page })
+	local headY = grouped and -18 or 0
+	motif.Position = UDim2.new(1, -24, 0, 18 + headY)
+	if not grouped then
+		text({ Text = tab.kicker, Font = F.Bold, TextSize = 11, TextColor3 = tab.accent, Position = UDim2.fromOffset(24, 22), Size = UDim2.new(1, -180, 0, 14), Parent = page })
+	end
+	local titleLabel = text({ Text = tab.title, Font = F.Heavy, TextSize = 26, Position = UDim2.fromOffset(24, 38 + headY), Size = UDim2.new(1, -170, 0, 30), TextTruncate = Enum.TextTruncate.AtEnd, Parent = page })
+	text({ Text = tab.sub, TextSize = 13, TextColor3 = C.Sub, Position = UDim2.fromOffset(24, 68 + headY), Size = UDim2.new(1, -60, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = page })
 	G.TabUI[i].motif, G.TabUI[i].motifScale, G.TabUI[i].motifParts, G.TabUI[i].title = motif, motifScale, motifParts, titleLabel
 
+	local bodyY = G.HEAD_H + headY
 	local body = make("ScrollingFrame", {
-		Position = UDim2.fromOffset(0, G.HEAD_H),
-		Size = UDim2.new(1, 0, 1, -G.HEAD_H),
+		Position = UDim2.fromOffset(0, bodyY),
+		Size = UDim2.new(1, 0, 1, -bodyY),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 3,
@@ -4308,10 +4471,31 @@ for i, tab in ipairs(TABS) do
 	G.Pages[i], G.Bodies[i] = page, body
 end
 
--- área de arrastar a janela (topo do conteúdo + logo)
+-- barra de sub-abas (horizontal) de cada grupo
+for gi, grp in ipairs(GROUPS) do
+	if #grp.subs > 1 then
+		local names = {}
+		for _, id in ipairs(grp.subs) do
+			names[#names + 1] = TABS[G.TI[id]].name
+		end
+		local seg = Segmented(Window, {
+			items = names,
+			accent = grp.accent,
+			size = UDim2.fromOffset(#names * 116, 38),
+			position = UDim2.fromOffset(G.SIDE_W + 20, 16),
+			onChange = function(k)
+				selectTab(G.TI[grp.subs[k]], false)
+			end,
+		})
+		seg.frame.Visible = false
+		G.SubBars[gi] = seg
+	end
+end
+
+-- área de arrastar a janela (faixa fina no topo + logo)
 G.DragStrip = make("Frame", {
 	Position = UDim2.fromOffset(G.SIDE_W, 0),
-	Size = UDim2.new(1, -G.SIDE_W - 60, 0, 64),
+	Size = UDim2.new(1, -G.SIDE_W - 60, 0, 12),
 	BackgroundTransparency = 1,
 	Active = true,
 	Parent = Window,
@@ -4352,49 +4536,67 @@ CloseBtn.MouseLeave:Connect(function()
 	end
 end)
 
-local function selectTab(i, instant)
+selectTab = function(i, instant)
 	if G.CurrentTab == i then
 		return
 	end
 	local prev = G.CurrentTab
 	G.CurrentTab = i
-	local dir = (prev and i < prev) and -1 or 1
+	local g = G.groupOf[i]
+	local pg = prev and G.groupOf[prev]
+	G.groupSub[g] = i
+	local sameGroup = pg == g
+	local dx, dy = 0, 0
+	if sameGroup and prev then
+		dx = G.subPos[i] > G.subPos[prev] and 1 or -1
+	else
+		dy = (pg and g < pg) and -1 or 1
+	end
+	-- a página anterior some na hora: nada fica encavalado durante a animação
 	for j, page in ipairs(G.Pages) do
 		if j == i then
 			page.Visible = true
+			local home = UDim2.fromOffset(G.SIDE_W, G.pageY[j])
 			if instant or Prefs.reduceMotion then
 				if page:IsA("CanvasGroup") then
 					page.GroupTransparency = 0
 				end
-				page.Position = UDim2.fromOffset(G.SIDE_W, 0)
+				page.Position = home
 			else
 				if page:IsA("CanvasGroup") then
 					page.GroupTransparency = 1
 				end
-				page.Position = UDim2.fromOffset(G.SIDE_W, 24 * dir)
-				tween(page, 0.45, { GroupTransparency = 0, Position = UDim2.fromOffset(G.SIDE_W, 0) })
+				page.Position = home + UDim2.fromOffset(30 * dx, 22 * dy)
+				tween(page, 0.42, { GroupTransparency = 0, Position = home })
 			end
-		elseif j == prev and not instant then
-			tween(page, 0.14, { GroupTransparency = 1 }, EASE.Quad)
-			task.delay(0.15, function()
-				if G.CurrentTab ~= j then
-					page.Visible = false
-				end
-			end)
 		else
 			page.Visible = false
 		end
 	end
+	for gi, seg in pairs(G.SubBars) do
+		seg.frame.Visible = gi == g
+	end
+	if G.SubBars[g] then
+		G.SubBars[g].Set(G.subPos[i], true)
+	end
 	local d = instant and 0 or 0.4
-	tween(G.Indicator, d, { Position = UDim2.fromOffset(0, (i - 1) * (G.TAB_H + G.TAB_GAP)), BackgroundColor3 = TABS[i].accent })
-	tween(G.IndicatorBar, d, { BackgroundColor3 = TABS[i].accent })
-	for j, t in ipairs(G.TabUI) do
-		local sel = j == i
-		tween(t.label, d * 0.6, { TextColor3 = sel and C.Text or C.Sub })
-		tween(t.dot, d, {
-			BackgroundColor3 = sel and TABS[j].accent or TABS[j].accent:Lerp(C.Side, 0.55),
-			Size = sel and UDim2.fromOffset(8, 8) or UDim2.fromOffset(6, 6),
-		})
+	tween(G.Indicator, d, { Position = UDim2.fromOffset(0, (g - 1) * (G.TAB_H + G.TAB_GAP)), BackgroundColor3 = GROUPS[g].accent })
+	tween(G.IndicatorBar, d, { BackgroundColor3 = GROUPS[g].accent })
+	for gi, ui in ipairs(G.MainUI) do
+		local sel = gi == g
+		local acc = GROUPS[gi].accent
+		tween(ui.label, d * 0.6, { TextColor3 = sel and C.Text or C.Sub })
+		tween(ui.tile, d, { BackgroundColor3 = sel and acc or C.Surface2 })
+		for _, f in ipairs(ui.fg) do
+			tween(f, d, { BackgroundColor3 = sel and C.Ink or acc })
+		end
+		for _, f in ipairs(ui.holes) do
+			tween(f, d, { BackgroundColor3 = sel and acc or C.Surface2 })
+		end
+		if sel and not sameGroup and not instant and not Prefs.reduceMotion then
+			ui.tileScale.Scale = 0.8
+			tween(ui.tileScale, 0.5, { Scale = 1 }, EASE.Back)
+		end
 	end
 	-- animação de entrada: desenho do cabeçalho + cartões em cascata
 	if not instant and not Prefs.reduceMotion then
@@ -4420,9 +4622,9 @@ local function selectTab(i, instant)
 				if n > 8 then
 					break
 				end
-				sc.Scale = 0.94
-				task.delay(n * 0.035, function()
-					tween(sc, 0.45, { Scale = 1 }, EASE.Back)
+				sc.Scale = 0.96
+				task.delay(n * 0.03, function()
+					tween(sc, 0.4, { Scale = 1 }, EASE.Back)
 				end)
 			end
 		end
@@ -4430,15 +4632,12 @@ local function selectTab(i, instant)
 			Ext.TabEnter[i]()
 		end
 	end
+	if Ext.OnShow and Ext.OnShow[i] then
+		Ext.OnShow[i]()
+	end
 	if G.TabTick[i] then
 		G.TabTick[i]()
 	end
-end
-
-for i, t in ipairs(G.TabUI) do
-	t.btn.Activated:Connect(function()
-		selectTab(i, false)
-	end)
 end
 
 -- linhas de opções do motor (Ajustes + Farm), para sincronizar estado
@@ -5931,85 +6130,13 @@ Ext.run(function()
 		end
 	end
 
-	-- amigos jogando agora
-	local fr = Ext.card(body, 4, 0, true)
-	pad(18, 16, 18, 16).Parent = fr
-	list(Enum.FillDirection.Vertical, 8).Parent = fr
-	local frHead = make("Frame", { LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, Parent = fr })
-	text({ Text = "AMIGOS JOGANDO AGORA", Font = F.Bold, TextSize = 11, TextColor3 = A, Size = UDim2.new(1, -110, 1, 0), Parent = frHead })
-	local refreshBtn = Button(frHead, { text = "Atualizar", style = "ghost", size = UDim2.fromOffset(96, 28), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, 0, 0.5, 0), textSize = 12 })
-	local frList = make("Frame", { LayoutOrder = 2, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = fr }, { list(Enum.FillDirection.Vertical, 6) })
-	local frEmpty = text({ LayoutOrder = 3, Text = "", TextSize = 12, TextColor3 = C.Dim, Size = UDim2.new(1, 0, 0, 20), Parent = fr })
-	local loadingFriends = false
-	local function loadFriends()
-		if loadingFriends then
-			return
-		end
-		loadingFriends = true
-		for _, c in ipairs(frList:GetChildren()) do
-			if c:IsA("Frame") then
-				c:Destroy()
-			end
-		end
-		frEmpty.Text = T("Procurando amigos…")
-		frEmpty.Visible = true
-		task.spawn(function()
-			local ok, friends = pcall(function()
-				return LocalPlayer:GetFriendsOnline(50)
-			end)
-			loadingFriends = false
-			if not ok or type(friends) ~= "table" then
-				frEmpty.Text = T("Não foi possível carregar os amigos")
-				return
-			end
-			local shown = 0
-			for _, f in ipairs(friends) do
-				local inGame = (f.LocationType == 4 or f.LocationType == 1) and f.PlaceId
-				if inGame and shown < 6 then
-					shown += 1
-					local row = make("Frame", { LayoutOrder = shown, Size = UDim2.new(1, 0, 0, 50), BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = frList }, { corner(12) })
-					local av = make("ImageLabel", { Position = UDim2.fromOffset(9, 8), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = C.Surface, BorderSizePixel = 0, Parent = row }, { corner("full") })
-					local display = Ext.streamer and T("Amigo") or (f.DisplayName or f.UserName or "?")
-					text({ Text = display, Font = F.Bold, TextSize = 14, Position = UDim2.fromOffset(54, 8), Size = UDim2.new(1, -170, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd, Parent = row })
-					text({ Text = tostring(f.LastLocation or ""), TextSize = 12, TextColor3 = C.Dim, Position = UDim2.fromOffset(54, 26), Size = UDim2.new(1, -170, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = row })
-					local here = f.GameId ~= nil and f.GameId == game.JobId
-					local canJoin = f.GameId ~= nil and not here
-					local jb = Button(row, {
-						text = here and "Aqui" or (canJoin and "Entrar" or "Privado"),
-						style = canJoin and "filled" or "ghost",
-						accent = A,
-						size = UDim2.fromOffset(96, 32),
-						anchor = Vector2.new(1, 0.5),
-						position = UDim2.new(1, -9, 0.5, 0),
-						textSize = 12,
-					})
-					jb.Activated:Connect(function()
-						if not canJoin then
-							return
-						end
-						toast(T("Entrando no servidor de") .. " " .. display .. "…", A)
-						pcall(function()
-							TeleportService:TeleportToPlaceInstance(f.PlaceId, f.GameId, LocalPlayer)
-						end)
-					end)
-					task.spawn(function()
-						local okT, img = pcall(function()
-							return Players:GetUserThumbnailAsync(f.VisitorId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-						end)
-						if okT and img then
-							av.Image = img
-						end
-					end)
-				end
-			end
-			frEmpty.Visible = shown == 0
-			if shown == 0 then
-				frEmpty.Text = T("Nenhum amigo jogando agora")
-			end
-		end)
-	end
-	refreshBtn.Activated:Connect(loadFriends)
-	loadFriends()
+	-- amigos (a lista completa fica em Servidor › Amigos)
+	local frCard = Ext.card(body, 4, 68)
+	text({ Text = "AMIGOS", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(18, 16), Size = UDim2.fromOffset(200, 14), Parent = frCard })
+	Ext.homeFriendsLabel = text({ Text = T("Procurando amigos…"), Font = F.Bold, TextSize = 15, Position = UDim2.fromOffset(18, 34), Size = UDim2.new(1, -170, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd, Parent = frCard })
+	Button(frCard, { text = "Ver amigos", style = "tinted", accent = A, size = UDim2.fromOffset(120, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
+		selectTab(G.TI.friends, false)
+	end)
 
 	-- rodapé
 	local foot = Ext.card(body, 5, 64)
@@ -6049,6 +6176,159 @@ Ext.run(function()
 		refreshUsing()
 	end
 	table.insert(G.Refreshers, refreshUsing)
+end)
+
+--------------------------------------------------------------------------
+-- ABA · AMIGOS (dentro de Servidor)
+--------------------------------------------------------------------------
+Ext.run(function()
+	local tab, body = TABS[G.TI.friends], G.Bodies[G.TI.friends]
+	local A = tab.accent
+	local STATUS = {
+		[0] = "No app do Roblox", [1] = "Jogando", [2] = "No site", [3] = "No Studio",
+		[4] = "Jogando", [5] = "No Xbox", [6] = "No Team Create",
+	}
+
+	-- resumo + convidar
+	local top = Ext.card(body, 1, 96)
+	top.BackgroundColor3 = C.Surface:Lerp(A, 0.05)
+	text({ Text = "AGORA", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(18, 16), Size = UDim2.fromOffset(200, 14), Parent = top })
+	local countL = text({ Text = "…", Font = F.Heavy, TextSize = 22, Position = UDim2.fromOffset(18, 32), Size = UDim2.new(1, -200, 0, 26), TextTruncate = Enum.TextTruncate.AtEnd, Parent = top })
+	local subL = text({ Text = "", TextSize = 12, TextColor3 = C.Sub, Position = UDim2.fromOffset(18, 62), Size = UDim2.new(1, -200, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = top })
+	local invite = Button(top, { text = "Convidar amigos", style = "filled", accent = A, size = UDim2.fromOffset(160, 34), anchor = Vector2.new(1, 0), position = UDim2.new(1, -16, 0, 14) })
+	local refresh = Button(top, { text = "Atualizar", style = "ghost", size = UDim2.fromOffset(160, 30), anchor = Vector2.new(1, 1), position = UDim2.new(1, -16, 1, -14), textSize = 12 })
+	invite.Activated:Connect(function()
+		local ok = pcall(function()
+			game:GetService("SocialService"):PromptGameInvite(LocalPlayer)
+		end)
+		if not ok then
+			toast("Este jogo não permite convites", C.Warn)
+		end
+	end)
+
+	Section(body, 2, "JOGANDO AGORA", A)
+	local playingList = make("Frame", { LayoutOrder = 3, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = body }, { list(Enum.FillDirection.Vertical, 6) })
+	Section(body, 4, "ONLINE", A)
+	local onlineList = make("Frame", { LayoutOrder = 5, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = body }, { list(Enum.FillDirection.Vertical, 6) })
+
+	local function clear(f)
+		for _, c in ipairs(f:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c:Destroy()
+			end
+		end
+	end
+	local function empty(f, msg)
+		text({ Text = msg, TextSize = 12, TextColor3 = C.Dim, Size = UDim2.new(1, 0, 0, 22), Parent = f })
+	end
+	local function friendRow(parent, k, f, inGame)
+		local row = make("Frame", { LayoutOrder = k, Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = C.Surface, BorderSizePixel = 0, Parent = parent }, { corner(14), stroke(C.Stroke, 1, 0) })
+		local sc = make("UIScale", { Scale = 0.94, Parent = row })
+		task.delay(math.min(k, 8) * 0.04, function()
+			tween(sc, 0.4, { Scale = 1 }, EASE.Back)
+		end)
+		local av = make("ImageLabel", { Position = UDim2.fromOffset(12, 11), Size = UDim2.fromOffset(36, 36), BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = row }, { corner("full") })
+		make("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromOffset(48, 47), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = inGame and C.Good or C.Butter, BorderSizePixel = 0, Parent = row }, { corner("full"), stroke(C.Surface, 2, 0) })
+		local display = Ext.streamer and T("Amigo") or (f.DisplayName or f.UserName or "?")
+		text({ Text = display, Font = F.Bold, TextSize = 14, Position = UDim2.fromOffset(60, 10), Size = UDim2.new(1, -180, 0, 18), TextTruncate = Enum.TextTruncate.AtEnd, Parent = row })
+		local where = T(STATUS[f.LocationType] or "Online")
+		if inGame and f.LastLocation and f.LastLocation ~= "" then
+			where = where .. " · " .. tostring(f.LastLocation)
+		end
+		text({ Text = where, TextSize = 12, TextColor3 = C.Dim, Position = UDim2.fromOffset(60, 30), Size = UDim2.new(1, -180, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = row })
+		if inGame then
+			local here = f.GameId ~= nil and f.GameId == game.JobId
+			local canJoin = f.GameId ~= nil and f.PlaceId ~= nil and not here
+			local jb = Button(row, {
+				text = here and "Aqui" or (canJoin and "Entrar" or "Privado"),
+				style = canJoin and "filled" or "ghost",
+				accent = A,
+				size = UDim2.fromOffset(100, 34),
+				anchor = Vector2.new(1, 0.5),
+				position = UDim2.new(1, -12, 0.5, 0),
+				textSize = 12,
+			})
+			jb.Activated:Connect(function()
+				if not canJoin then
+					toast(here and "Vocês já estão no mesmo servidor" or "O servidor desse amigo é privado", C.Sub)
+					return
+				end
+				toast(T("Entrando no servidor de") .. " " .. display .. "…", A)
+				pcall(function()
+					TeleportService:TeleportToPlaceInstance(f.PlaceId, f.GameId, LocalPlayer)
+				end)
+			end)
+		end
+		task.spawn(function()
+			local ok, img = pcall(function()
+				return Players:GetUserThumbnailAsync(f.VisitorId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+			end)
+			if ok and img then
+				av.Image = img
+			end
+		end)
+	end
+
+	local loading, lastLoad = false, -100
+	local function load(force)
+		if loading or (not force and os.clock() - lastLoad < 20) then
+			return
+		end
+		loading, lastLoad = true, os.clock()
+		clear(playingList)
+		clear(onlineList)
+		empty(playingList, T("Procurando amigos…"))
+		task.spawn(function()
+			local ok, friends = pcall(function()
+				return LocalPlayer:GetFriendsOnline(100)
+			end)
+			loading = false
+			clear(playingList)
+			clear(onlineList)
+			if not ok or type(friends) ~= "table" then
+				countL.Text = T("Não foi possível carregar")
+				empty(playingList, T("Não foi possível carregar os amigos"))
+				return
+			end
+			local nPlay, nOn = 0, 0
+			for _, f in ipairs(friends) do
+				local inGame = (f.LocationType == 4 or f.LocationType == 1) and f.PlaceId ~= nil
+				if inGame then
+					nPlay += 1
+					friendRow(playingList, nPlay, f, true)
+				else
+					nOn += 1
+					if nOn <= 30 then
+						friendRow(onlineList, nOn, f, false)
+					end
+				end
+			end
+			if nPlay == 0 then
+				empty(playingList, T("Nenhum amigo jogando agora"))
+			end
+			if nOn == 0 then
+				empty(onlineList, T("Ninguém mais online"))
+			end
+			local total = nPlay + nOn
+			countL.Text = total .. " " .. T(total == 1 and "amigo online" or "amigos online")
+			subL.Text = nPlay .. " " .. T("jogando agora")
+			Ext.friendsInGame = nPlay
+			if Ext.homeFriendsLabel then
+				Ext.homeFriendsLabel.Text = total .. " " .. T("online") .. " · " .. nPlay .. " " .. T("jogando")
+			end
+			if Hooks.changed then
+				Hooks.changed()
+			end
+		end)
+	end
+	refresh.Activated:Connect(function()
+		load(true)
+	end)
+	Ext.OnShow = Ext.OnShow or {}
+	Ext.OnShow[G.TI.friends] = function()
+		load(false)
+	end
+	load(true)
 end)
 
 --------------------------------------------------------------------------
@@ -7114,32 +7394,6 @@ FabUI.charge = make("Frame", {
 	Parent = G.FabBtn,
 }, { corner("full") })
 
--- engrenagem: abre o painel rápido (perfis, botão, presets visíveis)
-FabUI.gear = make("TextButton", {
-	Text = "",
-	AutoButtonColor = false,
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromOffset(6, 6),
-	Size = UDim2.fromOffset(24, 24),
-	BackgroundColor3 = C.Surface2,
-	BorderSizePixel = 0,
-	ZIndex = 3,
-	Parent = Fab,
-}, { corner("full"), stroke(C.Stroke, 1, 0) })
-Ext.run(function()
-	for k = 0, 2 do
-		make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(4, 16), Rotation = k * 60, BackgroundColor3 = C.Sub, BorderSizePixel = 0, Parent = FabUI.gear }, { corner(1) })
-	end
-	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = C.Sub, BorderSizePixel = 0, Parent = FabUI.gear }, { corner("full") })
-	make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = FabUI.gear }, { corner("full") })
-end)
-FabUI.gear.Activated:Connect(function()
-	tween(FabUI.gear, 0.5, { Rotation = FabUI.gear.Rotation + 120 }, EASE.Back)
-	if Ext.openPanel then
-		Ext.openPanel()
-	end
-end)
-
 G.FAB_SIZES, G.FAB_ALPHA = { 46, 56, 66 }, { 1, 0.8, 0.6, 0.4 }
 function Ext.applyFab()
 	local sz = G.FAB_SIZES[Prefs.fabSize] or 56
@@ -7148,14 +7402,13 @@ function Ext.applyFab()
 	local a = G.FAB_ALPHA[Prefs.fabAlpha] or 1
 	G.FabBtn.BackgroundTransparency = 1 - 0.95 * a
 	FabUI.stroke.Transparency = 1 - 0.9 * a
-	for _, holder in ipairs({ FabUI.mark, FabUI.mini, FabUI.gear }) do
+	for _, holder in ipairs({ FabUI.mark, FabUI.mini }) do
 		for _, d in ipairs(holder:GetDescendants()) do
 			if d:IsA("Frame") then
 				d.BackgroundTransparency = 1 - a
 			end
 		end
 	end
-	FabUI.gear.BackgroundTransparency = 1 - a
 	task.delay(0.4, function()
 		if not Destroyed then
 			snapFab()
@@ -7663,20 +7916,24 @@ local function refreshBadges()
 	local nOpt = countActive(OPTIONS)
 	local nVis = countActive(G.VISUAL_OPTIONS)
 	local nPro = countActive(G.PROTECT_LIST)
+	local audioOn = Audio.needed() or Audio.mult.voice ~= 1
+	local optimize = State.preset and State.preset.name or (nOpt > 0 and tostring(nOpt) or "")
+	if G.FarmSince then
+		optimize = optimize ~= "" and (optimize .. " · Farm") or "Farm"
+	end
+	local custom = nVis + (audioOn and 1 or 0)
 	local values = {
-		presets = State.preset and State.preset.name or "",
-		tweaks = nOpt > 0 and tostring(nOpt) or "",
-		farm = G.FarmSince and "ON" or "",
-		visual = nVis > 0 and tostring(nVis) or "",
-		audio = (Audio.needed() or Audio.mult.voice ~= 1) and "ON" or "",
+		optimize = optimize,
+		custom = custom > 0 and tostring(custom) or "",
+		server = (Ext.friendsInGame or 0) > 0 and tostring(Ext.friendsInGame) or "",
 		protect = nPro > 0 and tostring(nPro) or "",
 	}
-	for i, t in ipairs(G.TabUI) do
-		local v = values[TABS[i].id] or ""
-		if t.badgeText.Text ~= v then
-			t.badgeText.Text = v
+	for gi, ui in ipairs(G.MainUI) do
+		local v = values[GROUPS[gi].id] or ""
+		if ui.badgeText.Text ~= v then
+			ui.badgeText.Text = v
 		end
-		t.badge.Visible = v ~= ""
+		ui.badge.Visible = v ~= ""
 	end
 end
 
@@ -7820,6 +8077,13 @@ end
 -- NOVIDADES -------------------------------------------------------------------
 Ext.run(function()
 	local CHANGELOG = {
+		{ v = "6.3", items = {
+			"Menu lateral com 6 abas, ícones e botões maiores",
+			"Sub-abas horizontais dentro de Otimização, Personalizar, Servidor e Configurações",
+			"Nova sub-aba Amigos: quem está online, entrar no servidor e convidar",
+			"Perfis e botão flutuante agora ficam em Configurações (sem engrenagem no botão)",
+			"Troca de abas sem páginas encavaladas",
+		} },
 		{ v = "6.2", items = {
 			"Corrigido o erro \"Out of local registers\" no Delta e em outros executores",
 		} },
@@ -7897,23 +8161,10 @@ Ext.run(function()
 	end
 end)
 
--- PAINEL RÁPIDO (engrenagem) ---------------------------------------------------
+-- CONFIGURAÇÕES › PERFIS e › BOTÃO ---------------------------------------------
 Ext.run(function()
-	local A = C.Salmon
-	local m = Ext.modal(420, 500, A)
-	text({ Text = "PAINEL RÁPIDO", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(22, 22), Size = UDim2.new(1, -90, 0, 14), Parent = m.card })
-	text({ Text = "Perfis e botão flutuante", Font = F.Heavy, TextSize = 21, Position = UDim2.fromOffset(22, 38), Size = UDim2.new(1, -90, 0, 26), Parent = m.card })
-	local body = make("ScrollingFrame", {
-		Position = UDim2.fromOffset(0, 78),
-		Size = UDim2.new(1, 0, 1, -78),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
-		ScrollBarImageColor3 = A,
-		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		Parent = m.card,
-	}, { pad(18, 4, 18, 20), list(Enum.FillDirection.Vertical, 8) })
+	local A = TABS[G.TI.profiles].accent
+	local body = G.Bodies[G.TI.profiles]
 	local order = 0
 	local function nextOrder()
 		order += 1
@@ -8104,6 +8355,9 @@ Ext.run(function()
 	end)
 
 	-- botão flutuante
+	-- daqui para baixo: sub-aba Botão
+	body = G.Bodies[G.TI.fab]
+	order = 0
 	Section(body, nextOrder(), "BOTÃO FLUTUANTE", A)
 	local sizeRow = Row(body, nextOrder(), { title = "Tamanho", desc = "Tamanho do botão na tela", accent = A, rightWidth = 140, pressable = false })
 	local sizeStep = Stepper(sizeRow.frame, {
@@ -8149,15 +8403,21 @@ Ext.run(function()
 		})
 	end
 
-	function Ext.openPanel()
-		refreshProfiles()
+	text({
+		LayoutOrder = nextOrder(),
+		Text = "Segure o botão flutuante sem mover para tirar uma print limpa. O modo e o tempo ficam em Personalizar › Visual.",
+		TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
+	})
+	Ext.OnShow = Ext.OnShow or {}
+	Ext.OnShow[G.TI.profiles] = refreshProfiles
+	Ext.OnShow[G.TI.fab] = function()
 		sizeStep.Set(Prefs.fabSize, true)
 		alphaStep.Set(Prefs.fabAlpha, true)
 		for id, r in pairs(presetRows) do
 			r.Set(not Prefs.hiddenPresets[id])
 		end
-		m.Show()
 	end
+	refreshProfiles()
 end)
 
 --------------------------------------------------------------------------
@@ -8331,4 +8591,3 @@ if not okMain then
 		end
 	end)
 end
-
