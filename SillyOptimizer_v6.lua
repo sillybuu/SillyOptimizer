@@ -22,7 +22,7 @@ local function SillyMain()
 -- estado e peças da interface ficam em G (poupa variáveis locais: alguns executores têm limite baixo)
 local G = {}
 
-local VERSION = "6.5"
+local VERSION = "6.5.1"
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -65,25 +65,38 @@ end
 --------------------------------------------------------------------------
 -- AMBIENTE (funções de executor são opcionais)
 --------------------------------------------------------------------------
-local function asFn(f)
-	return type(f) == "function" and f or nil
+local GENV = {}
+pcall(function()
+	if type(getgenv) == "function" then
+		local g = getgenv()
+		if type(g) == "table" then
+			GENV = g
+		end
+	end
+end)
+local function asFn(f, name)
+	if type(f) == "function" then
+		return f
+	end
+	local g = name and rawget(GENV, name)
+	return type(g) == "function" and g or nil
 end
 
 local Env = {
-	setfpscap = asFn(setfpscap),
-	getfpscap = asFn(getfpscap),
-	writefile = asFn(writefile),
-	readfile = asFn(readfile),
-	isfile = asFn(isfile),
-	gethui = asFn(gethui),
-	delfile = asFn(delfile),
-	makefolder = asFn(makefolder),
-	getcustomasset = asFn(getcustomasset) or asFn(getsynasset),
-	setfflag = asFn(setfflag),
-	getfflag = asFn(getfflag),
-	sethiddenproperty = asFn(sethiddenproperty),
-	gethiddenproperty = asFn(gethiddenproperty),
-	setclipboard = asFn(setclipboard) or asFn(toclipboard),
+	setfpscap = asFn(setfpscap, "setfpscap"),
+	getfpscap = asFn(getfpscap, "getfpscap"),
+	writefile = asFn(writefile, "writefile"),
+	readfile = asFn(readfile, "readfile"),
+	isfile = asFn(isfile, "isfile"),
+	gethui = asFn(gethui, "gethui"),
+	delfile = asFn(delfile, "delfile"),
+	makefolder = asFn(makefolder, "makefolder"),
+	getcustomasset = asFn(getcustomasset, "getcustomasset") or asFn(getsynasset, "getsynasset"),
+	setfflag = asFn(setfflag, "setfflag"),
+	getfflag = asFn(getfflag, "getfflag"),
+	sethiddenproperty = asFn(sethiddenproperty, "sethiddenproperty"),
+	gethiddenproperty = asFn(gethiddenproperty, "gethiddenproperty"),
+	setclipboard = asFn(setclipboard, "setclipboard") or asFn(toclipboard, "toclipboard"),
 	studio = RunService:IsStudio(),
 	touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
 }
@@ -207,6 +220,22 @@ end
 
 -- tradução: o texto em português é a chave; sem tradução, fica em português
 local EN = { -- EN_DICT
+	["Opções que seu executor não suporta ficam escondidas (sem lista cheia de Indisponível)"] = "Options your executor can't run are hidden (no list full of Unavailable)",
+	["Quando algo falha, mostra o motivo real e gera um relatório em Configurações"] = "When something fails it shows the real reason and builds a report in Settings",
+	["Procura as funções do executor também no getgenv"] = "Also looks for executor functions in getgenv",
+	["opções escondidas: seu executor não tem as funções que elas precisam (veja Configurações › Compatibilidade)"] = "options hidden: your executor lacks the functions they need (see Settings › Compatibility)",
+	["Não funcionou aqui"] = "Didn't work here",
+	["Ajustes por FFlag"] = "FFlag tweaks",
+	["Função setfflag (rede, FPS e avançados)"] = "setfflag function (network, FPS and advanced)",
+	["Propriedades escondidas"] = "Hidden properties",
+	["Função sethiddenproperty"] = "sethiddenproperty function",
+	["Ícones desenhados"] = "Drawn icons",
+	["Função getcustomasset"] = "getcustomasset function",
+	["Relatório de erros"] = "Error report",
+	["Copia o que não funcionou para você me mandar"] = "Copies what failed so you can send it",
+	["Copiar"] = "Copy",
+	["Relatório copiado"] = "Report copied",
+	["Sem setclipboard · relatório no console (F9)"] = "No setclipboard · report in console (F9)",
 	["Achar servidor com ping menor"] = "Find a lower-ping server",
 	["Alerta de lag"] = "Lag alert",
 	["Animações só de perto"] = "Animations only up close",
@@ -910,6 +939,7 @@ end
 
 -- estado compartilhado dos recursos novos (uma variável só, para poupar locais)
 local Ext = {
+	hidden = {},
 	fov = 90,
 	SHOT_HIDES = { 3, 5, 10 },
 	hl = { mode = 1, color = 1, alpha = 2 },
@@ -1579,11 +1609,14 @@ function Ext.FF.set(owner, flags)
 			Ext.FF.orig[name] = (okG and v ~= nil) and tostring(v) or false
 		end
 		Ext.FF.owners[name] = owner
-		if pcall(Env.setfflag, name, tostring(value)) then
+		local ok, e = pcall(Env.setfflag, name, tostring(value))
+		if ok then
 			any = true
+		else
+			Ext.FF.lastErr = tostring(e)
 		end
 	end
-	return any
+	return any, (not any) and ("setfflag: " .. tostring(Ext.FF.lastErr or "recusado")) or nil
 end
 function Ext.FF.reset(owner, flags)
 	if not Env.setfflag then
@@ -3714,17 +3747,22 @@ local function applyProps(id, inst, props, verify)
 				rec[prop] = cur
 			end
 		end
-		local ok = pcall(setProp, inst, prop, value)
+		local ok, err = pcall(setProp, inst, prop, value)
 		if not ok and Env.sethiddenproperty then
 			-- executor: força propriedades que o Roblox não deixa mudar por script
-			ok = pcall(Env.sethiddenproperty, inst, prop, value)
+			local ok2, err2 = pcall(Env.sethiddenproperty, inst, prop, value)
+			ok, err = ok2, ok2 and nil or (tostring(err) .. " | hidden: " .. tostring(err2))
 		end
 		if ok and verify then
 			local okGet, now = pcall(getProp, inst, prop)
 			ok = okGet and same(now, value)
+			if not ok then
+				err = "não fixou (" .. tostring(now) .. ")"
+			end
 		end
 		if not ok then
 			stat.failed += 1
+			stat.why = tostring(inst.Name) .. "." .. tostring(prop) .. ": " .. tostring(err):gsub("^.-:%d+: ", "")
 		end
 	end
 end
@@ -3910,6 +3948,9 @@ local function setOptions(map)
 	local toScan = {}
 	for id, v in pairs(map) do
 		local opt = G.ById[id]
+		if opt and v and opt.locked then
+			opt = nil -- opção sem suporte neste executor nunca liga
+		end
 		if opt and Active[id] ~= v then
 			Active[id] = v
 			local s = G.Stat[id]
@@ -3927,8 +3968,16 @@ local function setOptions(map)
 					table.insert(toScan, opt)
 				end
 				if opt.custom then
-					local ok, res = pcall(opt.custom.on)
+					local ok, res, why = pcall(opt.custom.on)
 					s.ok = ok and res ~= false
+					s.err = nil
+					if not s.ok then
+						s.err = tostring(not ok and res or why or "")
+						s.err = s.err:gsub("^.-:%d+: ", "")
+						warn("[Silly Optimizer] " .. tostring(opt.id) .. ": " .. s.err)
+						Ext.errLog = Ext.errLog or {}
+						Ext.errLog[opt.id] = s.err
+					end
 				end
 			else
 				s.items = 0
@@ -3963,7 +4012,8 @@ local function statusOf(id)
 	end
 	if opt.custom then
 		if s.ok == false then
-			return T("Indisponível neste ambiente"), "warn"
+			local e = s.err and s.err ~= "" and string.sub(s.err, 1, 48) or nil
+			return T("Não funcionou aqui") .. (e and (" · " .. e) or ""), "warn"
 		end
 		if opt.statusText then
 			local ok, t = pcall(opt.statusText)
@@ -5529,7 +5579,7 @@ local function optionRow(parent, order, opt, accent, onToggle)
 		initial = Active[opt.id],
 		locked = opt.locked,
 		onLocked = function()
-			toast("Precisa de executor com setfpscap", C.Warn)
+			toast(T(opt.desc or "Indisponível"), C.Warn)
 		end,
 		onToggle = onToggle,
 	}
@@ -6223,22 +6273,33 @@ Ext.run(function()
 
 	local lastCat
 	for _, opt in ipairs(OPTIONS) do
-		if opt.cat ~= lastCat then
-			lastCat = opt.cat
-			headers[opt.cat] = Section(body, nextOrder(), opt.cat, A)
-		end
-		local r = optionRow(body, nextOrder(), opt, A, function(v)
-			State.preset = nil
-			setOptions({ [opt.id] = v })
-			if filterMode ~= 1 then
-				task.delay(0.4, filter)
+		if opt.locked then
+			Ext.hidden["OPTIONS"] = (Ext.hidden["OPTIONS"] or 0) + 1
+		else
+			if opt.cat ~= lastCat then
+				lastCat = opt.cat
+				headers[opt.cat] = Section(body, nextOrder(), opt.cat, A)
 			end
-		end)
-		table.insert(rows, {
-			frame = r.frame,
-			id = opt.id,
-			cat = opt.cat,
-			search = string.lower(T(opt.title) .. " " .. T(opt.desc) .. " " .. opt.title),
+			local r = optionRow(body, nextOrder(), opt, A, function(v)
+				State.preset = nil
+				setOptions({ [opt.id] = v })
+				if filterMode ~= 1 then
+					task.delay(0.4, filter)
+				end
+			end)
+			table.insert(rows, {
+				frame = r.frame,
+				id = opt.id,
+				cat = opt.cat,
+				search = string.lower(T(opt.title) .. " " .. T(opt.desc) .. " " .. opt.title),
+			})
+		end
+	end
+	if (Ext.hidden["OPTIONS"] or 0) > 0 then
+		text({
+			LayoutOrder = nextOrder(),
+			Text = Ext.hidden["OPTIONS"] .. " " .. T("opções escondidas: seu executor não tem as funções que elas precisam (veja Configurações › Compatibilidade)"),
+			TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
 		})
 	end
 
@@ -6437,13 +6498,17 @@ Ext.run(function()
 
 	local lastCat
 	for _, opt in ipairs(G.FarmList) do
-		if opt.cat ~= lastCat then
-			lastCat = opt.cat
-			Section(body, nextOrder(), opt.cat, A)
+		if opt.locked then
+			Ext.hidden["G.FarmList"] = (Ext.hidden["G.FarmList"] or 0) + 1
+		else
+			if opt.cat ~= lastCat then
+				lastCat = opt.cat
+				Section(body, nextOrder(), opt.cat, A)
+			end
+			optionRow(body, nextOrder(), opt, A, function(v)
+				setOptions({ [opt.id] = v })
+			end)
 		end
-		optionRow(body, nextOrder(), opt, A, function(v)
-			setOptions({ [opt.id] = v })
-		end)
 	end
 
 	local pulseTween
@@ -7237,15 +7302,26 @@ Ext.run(function()
 
 	local lastCat
 	for _, opt in ipairs(G.NETWORK_OPTIONS) do
-		if opt.cat ~= lastCat then
-			lastCat = opt.cat
-			Section(body, nextOrder(), opt.cat, A)
+		if opt.locked then
+			Ext.hidden["G.NETWORK_OPTIONS"] = (Ext.hidden["G.NETWORK_OPTIONS"] or 0) + 1
+		else
+			if opt.cat ~= lastCat then
+				lastCat = opt.cat
+				Section(body, nextOrder(), opt.cat, A)
+			end
+			optionRow(body, nextOrder(), opt, A, function(v)
+				setOptions({ [opt.id] = v })
+			end)
 		end
-		optionRow(body, nextOrder(), opt, A, function(v)
-			setOptions({ [opt.id] = v })
-		end)
 	end
 
+	if (Ext.hidden["G.NETWORK_OPTIONS"] or 0) > 0 then
+		text({
+			LayoutOrder = nextOrder(),
+			Text = Ext.hidden["G.NETWORK_OPTIONS"] .. " " .. T("opções escondidas: seu executor não tem as funções que elas precisam (veja Configurações › Compatibilidade)"),
+			TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
+		})
+	end
 	text({
 		LayoutOrder = nextOrder(),
 		Text = "Nenhum script diminui a distância até o servidor. Os ajustes de rede (FFlag) são experimentais: ajudam em conexões instáveis, mas o efeito varia por jogo e aparelho.",
@@ -7573,13 +7649,17 @@ Ext.run(function()
 
 	local lastCat
 	for _, opt in ipairs(G.VISUAL_OPTIONS) do
-		if opt.cat ~= lastCat then
-			lastCat = opt.cat
-			Section(body, nextOrder(), opt.cat, A)
+		if opt.locked then
+			Ext.hidden["G.VISUAL_OPTIONS"] = (Ext.hidden["G.VISUAL_OPTIONS"] or 0) + 1
+		else
+			if opt.cat ~= lastCat then
+				lastCat = opt.cat
+				Section(body, nextOrder(), opt.cat, A)
+			end
+			optionRow(body, nextOrder(), opt, A, function(v)
+				setOptions({ [opt.id] = v })
+			end)
 		end
-		optionRow(body, nextOrder(), opt, A, function(v)
-			setOptions({ [opt.id] = v })
-		end)
 	end
 
 	-- cor e opacidade do destaque
@@ -8060,14 +8140,18 @@ Ext.run(function()
 
 	local lastCat
 	for _, opt in ipairs(G.PROTECT_LIST) do
-		local cat = opt.cat == "PRIVACIDADE" and "PRIVACIDADE" or "PROTEÇÃO"
-		if cat ~= lastCat then
-			lastCat = cat
-			Section(body, nextOrder(), cat, A)
+		if opt.locked then
+			Ext.hidden["G.PROTECT_LIST"] = (Ext.hidden["G.PROTECT_LIST"] or 0) + 1
+		else
+			local cat = opt.cat == "PRIVACIDADE" and "PRIVACIDADE" or "PROTEÇÃO"
+			if cat ~= lastCat then
+				lastCat = cat
+				Section(body, nextOrder(), cat, A)
+			end
+			optionRow(body, nextOrder(), opt, A, function(v)
+				setOptions({ [opt.id] = v })
+			end)
 		end
-		optionRow(body, nextOrder(), opt, A, function(v)
-			setOptions({ [opt.id] = v })
-		end)
 	end
 
 	text({
@@ -8711,6 +8795,44 @@ Ext.run(function()
 	infoRow("Limitar FPS", "Função setfpscap do executor", Env.setfpscap ~= nil)
 	infoRow("Salvar escolhas", "Funções writefile e readfile", Env.canSave)
 	infoRow("Interface protegida", "gethui esconde o menu de outros scripts", Env.gethui ~= nil)
+	infoRow("Ajustes por FFlag", "Função setfflag (rede, FPS e avançados)", Env.setfflag ~= nil)
+	infoRow("Propriedades escondidas", "Função sethiddenproperty", Env.sethiddenproperty ~= nil)
+	infoRow("Ícones desenhados", "Função getcustomasset", Env.getcustomasset ~= nil)
+
+	local repRow = Row(body, nextOrder(), { title = "Relatório de erros", desc = "Copia o que não funcionou para você me mandar", accent = A, rightWidth = 130, pressable = false })
+	Button(repRow.frame, { text = "Copiar", style = "tinted", accent = A, size = UDim2.fromOffset(100, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
+		local lines = { "Silly Optimizer v" .. VERSION .. " · " .. tostring(Env.executor or (Env.studio and "Studio" or "?")) .. " · place " .. tostring(game.PlaceId) }
+		local fns = {}
+		for _, k in ipairs({ "setfpscap", "writefile", "gethui", "setfflag", "getfflag", "sethiddenproperty", "getcustomasset", "setclipboard" }) do
+			fns[#fns + 1] = k .. "=" .. (Env[k] and "sim" or "não")
+		end
+		lines[#lines + 1] = table.concat(fns, " ")
+		local okId, idn = pcall(function()
+			local f = asFn(getthreadidentity, "getthreadidentity") or asFn(getidentity, "getidentity")
+			return f and f()
+		end)
+		lines[#lines + 1] = "identity=" .. tostring(okId and idn or "?")
+		local hid = {}
+		for k, v in pairs(Ext.hidden) do
+			hid[#hid + 1] = k .. ":" .. v
+		end
+		lines[#lines + 1] = "escondidas " .. table.concat(hid, " ")
+		for id, e in pairs(Ext.errLog or {}) do
+			lines[#lines + 1] = id .. " -> " .. e
+		end
+		for id, st in pairs(G.Stat) do
+			if Active[id] and (st.failed or 0) > 0 then
+				lines[#lines + 1] = id .. " -> " .. st.failed .. " falhas" .. (st.why and (" (" .. tostring(st.why) .. ")") or "")
+			end
+		end
+		local txt = table.concat(lines, "\n")
+		if Env.setclipboard and pcall(Env.setclipboard, txt) then
+			toast(T("Relatório copiado"), A)
+		else
+			warn(txt)
+			toast(T("Sem setclipboard · relatório no console (F9)"), C.Warn)
+		end
+	end)
 
 	Section(body, nextOrder(), "SISTEMA", A)
 	local logRow = Row(body, nextOrder(), {
@@ -9074,6 +9196,11 @@ end
 -- NOVIDADES -------------------------------------------------------------------
 Ext.run(function()
 	local CHANGELOG = {
+		{ v = "6.5.1", items = {
+			"Opções que seu executor não suporta ficam escondidas (sem lista cheia de Indisponível)",
+			"Quando algo falha, mostra o motivo real e gera um relatório em Configurações",
+			"Procura as funções do executor também no getgenv",
+		} },
 		{ v = "6.5", items = {
 			"Nova aba Rede: ping ao vivo, gráfico, ajustes por FFlag e limites por distância",
 			"Desbloqueio de FPS por FFlag e opções avançadas de executor",
