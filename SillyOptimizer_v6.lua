@@ -1,5 +1,5 @@
 --[[
-	Silly Optimizer  ·  v6.3
+	Silly Optimizer  ·  v6.4
 	FPS booster e utilitários para Roblox (Luau) — celular e PC
 
 	Como usar
@@ -22,7 +22,7 @@ local function SillyMain()
 -- estado e peças da interface ficam em G (poupa variáveis locais: alguns executores têm limite baixo)
 local G = {}
 
-local VERSION = "6.3"
+local VERSION = "6.5"
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -77,6 +77,12 @@ local Env = {
 	isfile = asFn(isfile),
 	gethui = asFn(gethui),
 	delfile = asFn(delfile),
+	makefolder = asFn(makefolder),
+	getcustomasset = asFn(getcustomasset) or asFn(getsynasset),
+	setfflag = asFn(setfflag),
+	getfflag = asFn(getfflag),
+	sethiddenproperty = asFn(sethiddenproperty),
+	gethiddenproperty = asFn(gethiddenproperty),
 	setclipboard = asFn(setclipboard) or asFn(toclipboard),
 	studio = RunService:IsStudio(),
 	touch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled,
@@ -167,12 +173,15 @@ local Prefs = {
 	fabAlpha = 1, -- 1 = 100%, 2 = 80%, 3 = 60%, 4 = 40%
 	shotMode = 1, -- 1 = normal, 2 = cinema
 	shotHold = 3, -- índice em SHOT_HOLDS (5 s)
+	shotHide = 2, -- índice em SHOT_HIDES (por quanto tempo tudo fica escondido)
 	hiddenPresets = {},
 	lastVersion = "",
+	keyOk = "",
 }
 
 -- leitura antecipada do arquivo salvo (idioma e preferências valem já na montagem)
 G.SAVE_FILE = "SillyOptimizer.json"
+G.UPDATE_URL = "https://raw.githubusercontent.com/sillybuu/SillyOptimizer/refs/heads/main/SillyOptimizer_v6.lua"
 -- G.SaveData fica em G
 if Env.canSave then
 	local okF, exists = pcall(Env.isfile, G.SAVE_FILE)
@@ -198,6 +207,107 @@ end
 
 -- tradução: o texto em português é a chave; sem tradução, fica em português
 local EN = { -- EN_DICT
+	["Achar servidor com ping menor"] = "Find a lower-ping server",
+	["Alerta de lag"] = "Lag alert",
+	["Animações só de perto"] = "Animations only up close",
+	["Ativo · vigiando o ping"] = "Active · watching ping",
+	["Atualização disponível"] = "Update available",
+	["Avisa quando a conexão começar a oscilar"] = "Warns when your connection starts to fluctuate",
+	["Busca na lista do Roblox e entra no mais rápido"] = "Searches Roblox's list and joins the fastest one",
+	["Cinema liga gráficos no máximo e shader enquanto está escondido"] = "Cinema maxes graphics and shader while hidden",
+	["Conexão com lag agora"] = "Connection lagging right now",
+	["Conexão estável"] = "Stable connection",
+	["Céu limpo"] = "Clear sky",
+	["Espaço"] = "Space",
+	["Tropical"] = "Tropical",
+	["Céus reais com várias opções e modo print que esconde tudo"] = "Real skyboxes with several options and a screenshot mode that hides everything",
+	["Desbloqueio de FPS por FFlag e opções avançadas de executor"] = "FPS unlock via FFlag and advanced executor options",
+	["Digite a key"] = "Enter the key",
+	["Efeitos só de perto"] = "Effects only up close",
+	["Enviando"] = "Sending",
+	["Recebendo"] = "Receiving",
+	["Esconder"] = "Hide",
+	["Esconder agora"] = "Hide now",
+	["Esconder jogadores distantes"] = "Hide distant players",
+	["Esconder tudo por"] = "Hide everything for",
+	["Fecha o menu e esconde tudo; depois volta sozinho"] = "Closes the menu and hides everything; comes back on its own",
+	["Iluminação leve forçada"] = "Forced light lighting",
+	["Troca a tecnologia de luz do jogo pela mais leve (Compatibility)"] = "Switches the game's lighting tech to the lightest (Compatibility)",
+	["Indisponível: precisa de executor (sethiddenproperty)"] = "Unavailable: needs an executor (sethiddenproperty)",
+	["Indisponível: precisa de executor (setfflag)"] = "Unavailable: needs an executor (setfflag)",
+	["AVANÇADO · EXECUTOR"] = "ADVANCED · EXECUTOR",
+	["AJUSTES DE REDE · FFLAG"] = "NETWORK TWEAKS · FFLAG",
+	["ALIVIAR O APARELHO"] = "LIGHTEN THE DEVICE",
+	["AO VIVO"] = "LIVE",
+	["REDE"] = "NETWORK",
+	["MODO PRINT"] = "SCREENSHOT MODE",
+	["Key correta"] = "Correct key",
+	["Key incorreta"] = "Wrong key",
+	["Média neste jogo"] = "Average in this game",
+	["Nenhum script diminui a distância até o servidor. Os ajustes de rede (FFlag) são experimentais: ajudam em conexões instáveis, mas o efeito varia por jogo e aparelho."] = "No script can shorten the distance to the server. Network tweaks (FFlag) are experimental: they help on unstable connections, but results vary by game and device.",
+	["Nova aba Rede: ping ao vivo, gráfico, ajustes por FFlag e limites por distância"] = "New Network tab: live ping, graph, FFlag tweaks and distance limits",
+	["Para liberar o Silly Optimizer"] = "To unlock Silly Optimizer",
+	["Partículas, fogo e fumaça longe ficam desligados"] = "Distant particles, fire and smoke are turned off",
+	["Personagens longe somem (só para você)"] = "Far characters disappear (only for you)",
+	["Ping alto há 30 s · procurando servidor melhor"] = "High ping for 30 s · looking for a better server",
+	["Ping, oscilação, ajustes de rede e o que aliviar no aparelho"] = "Ping, jitter, network tweaks and what to lighten on the device",
+	["Preparando ícones"] = "Preparing icons",
+	["Ícones carregados"] = "Icons loaded",
+	["Presets Soft, Medium, High e Extreme (Extreme substitui o Potato)"] = "Soft, Medium, High and Extreme presets (Extreme replaces Potato)",
+	["Print: esconder a interface para tirar pelo próprio celular"] = "Screenshot: hide the interface to take it with your own phone",
+	["Procurar"] = "Search",
+	["Quem está longe fica parado até chegar perto"] = "Far players stay still until they get close",
+	["Rede"] = "Network",
+	["Segure o botão flutuante sem mover: tudo some por alguns segundos e você tira a print pelo celular."] = "Hold the floating button without moving: everything vanishes for a few seconds so you can screenshot with your phone.",
+	["Sistema de key e aviso de atualização"] = "Key system and update notice",
+	["Tempo para você tirar a print"] = "Time to take your screenshot",
+	["Tempo segurando até esconder tudo"] = "Hold time before hiding everything",
+	["Trocar de servidor se o ping passar de"] = "Switch server if ping goes above",
+	["Depois de 30 s com ping alto, entra num servidor melhor"] = "After 30 s of high ping, joins a better server",
+	["efeitos desligados"] = "effects off",
+	["jogador parado"] = "player frozen",
+	["jogadores parados"] = "players frozen",
+	["jogador escondido"] = "player hidden",
+	["jogadores escondidos"] = "players hidden",
+	["ajuste de rede"] = "network tweak",
+	["ajustes de rede"] = "network tweaks",
+	["execute o loadstring de novo"] = "run the loadstring again",
+	["oscilação"] = "jitter",
+	["Ícones desenhados e áreas de toque separadas (sem desligar sem querer)"] = "Hand-drawn icons and separated touch areas (no accidental toggles)",
+	["Texturas em baixa resolução"] = "Low-res textures",
+	["Força todas as texturas na qualidade mínima"] = "Forces every texture to minimum quality",
+	["Menos detalhe de longe"] = "Less detail at distance",
+	["Objetos distantes usam a versão mais simples"] = "Distant objects use the simplest version",
+	["Sem grama (forçado)"] = "No grass (forced)",
+	["Desliga a grama até em jogos que travam essa opção"] = "Turns grass off even in games that lock it",
+	["Sem sombras (forçado)"] = "No shadows (forced)",
+	["Zera a intensidade de todas as sombras"] = "Sets every shadow's intensity to zero",
+	["Congelar luz de voxel"] = "Freeze voxel lighting",
+	["Para de recalcular a iluminação do mapa"] = "Stops recalculating the map's lighting",
+	["Sem pós-processamento (forçado)"] = "No post-processing (forced)",
+	["Desliga bloom, blur e cor no motor"] = "Turns off bloom, blur and color in the engine",
+	["Atualizar menos as luzes"] = "Update lights less",
+	["Luzes locais atualizam bem menos vezes"] = "Local lights update far less often",
+	["Sem antisserrilhado"] = "No anti-aliasing",
+	["Bordas um pouco serrilhadas, mais FPS"] = "Slightly jagged edges, more FPS",
+	["Otimizar rede"] = "Optimize network",
+	["Liga as otimizações de rede internas do Roblox (experimental)"] = "Turns on Roblox's internal network optimizations (experimental)",
+	["Pacotes menores"] = "Smaller packets",
+	["Pode reduzir travadas em Wi-Fi ou 4G instável (experimental)"] = "May reduce stutter on unstable Wi-Fi or 4G (experimental)",
+	["Reenvio rápido de pacotes"] = "Fast packet resend",
+	["Recupera mais rápido quando um pacote se perde (experimental)"] = "Recovers faster when a packet is lost (experimental)",
+	["Ping medido mais vezes"] = "Ping measured more often",
+	["O jogo reage mais rápido a mudanças de conexão (experimental)"] = "The game reacts faster to connection changes (experimental)",
+	["Jogadores atualizados mais rápido"] = "Players updated faster",
+	["Movimento dos outros mais fluido (experimental)"] = "Smoother movement of others (experimental)",
+	["Tudo no mínimo + ajustes de executor (FFlags e iluminação forçada). Máximo de FPS."] = "Everything at minimum + executor tweaks (FFlags and forced lighting). Maximum FPS.",
+	["Tudo no mínimo. No executor também força FFlags e iluminação leve."] = "Everything at minimum. On an executor it also forces FFlags and light lighting.",
+	["Áudio virou aba própria na lateral, sem ficar escondido"] = "Audio is now its own sidebar tab, no longer buried",
+	["Ícones refeitos: cheios, arredondados e fáceis de reconhecer"] = "Redrawn icons: solid, rounded and easy to recognize",
+	["Ícones também nas sub-abas horizontais"] = "Icons on the horizontal sub-tabs too",
+	["Aviso de print mais claro quando o app não tem o recurso do Roblox"] = "Clearer screenshot notice when the app lacks Roblox's capture feature",
+	["Este app não tem o recurso de print do Roblox · use o print do seu aparelho"] = "This app has no Roblox screenshot feature · use your device's screenshot",
+	["Este app bloqueou a print do Roblox · use o print do seu aparelho"] = "This app blocked the Roblox screenshot · use your device's screenshot",
 	["Otimização"] = "Optimization",
 	["Personalizar"] = "Customize",
 	["Servidores"] = "Servers",
@@ -801,6 +911,7 @@ end
 -- estado compartilhado dos recursos novos (uma variável só, para poupar locais)
 local Ext = {
 	fov = 90,
+	SHOT_HIDES = { 3, 5, 10 },
 	hl = { mode = 1, color = 1, alpha = 2 },
 	pings = {},
 	gameName = "",
@@ -809,6 +920,82 @@ local Ext = {
 	Profiles = (G.SaveData and type(G.SaveData.profiles) == "table") and G.SaveData.profiles or {},
 	Gallery = (G.SaveData and type(G.SaveData.gallery) == "table") and G.SaveData.gallery or {},
 }
+-- ícones desenhados para o Silly Optimizer (PNG 96px em base64; gravados no aparelho pelo executor)
+local ICON_DATA = {
+	home = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAADv0lEQVR4nO3cPWgVQRDA8dkQjKggCH6gaGGQEEhjE7GwsrJLIxYp7KwECwtJZ5k2EAyxsxMsQhq7VBaiBGwEtRBFMWIhRExQo+Zvc4Hw1Hu797Gze29+8Kp3H7Mz797tzR0nYowxxhhjjDHGmMQB48AysFl8loFx7bgGAnAJWOdvX4Ep7fg6DbgB/P5H8ndsA7cBpx1rpwAjwL2SxPe6D+zTjrsTgOPAk4Dk73gGnNKOP2vAWeBdheTvWAPOaY8jS8CVYoZT13fgqvZ4sgEMAbMNJL7XLDCkPb6kAQeApRaSv+MhcFB7nEkCRoHngQldKD4hngOj2uNNCnAB+BSQxJ/ArV3rXwO2Atb/DFzUHXUimkpe3SIOHGAYmAtIGMArYKxkm6cr/I0tAnvijl4ZcAhYCUyU1wm04on8EXAkzuiVAWPAy8AEzYVMIQFX9IS2A/bxGphod/TKSjqZ/1PrIqrCxVx3O6oencxejbQRKrQzutVRrdDJpOlGWsWGXv4d1ZQGnsIPIapUD32tv8KoUj/5xZ4MRJPT9C/GdDiqHC+A2rwgjCrnFkAbLZGoutIEy7KjmmXQJbL5MWV/2JZI/u+0MyeuEslOKICJYtoYIsub4RUfDmhvSl08EBty8fINmG4lmIiA6WIsvtZbeVC4eALZ1wdgsvEglACTxZh8LbcRxIbnzp8CJxoPQBlwohibj402AvCRfwu3REhHtY2d9zPTmZsYJYp+10xTBfBOWL+NOuc6n/zdmspHdtPDrrECKLMCKLMCKLMCKLMCKLMCKLMCKLMCKLMCKLMCKEuqAD1vQWlakm9VSaYZVyTmsYi0fe/4i4icd869qLORLjbjZiMkX4p9zEbYj5eUjoANEdlfZxsBNp1zB+psoItHQKzkx95XqZQKMJCsAMqsAMqGtQPwFXqSD7kxrsmOAGVWAGVWAGVWAGVWAGVWAGVWAGVWAGVWAGVWAGVWAGVWAGVWAGUhBfhV9iVwuH44eQCO9Vlky3dbIQX42Of7u4Pw7k3gqIgs9llszXd7IfcDVkXkZMn3UyIylUkbvu37Bau+C4YcAUvVYhlI3rkKeSxlr4i8FpHjlcOqIaM7Yu9F5Ixz7ofPwt5HgHPuu4jcrBXaYLjpm3wJnYY65+6LyEKlsOrZjLROXfPOuQchK1S5DrguIncqrFfHSqR16pgXkRvR9la8G/R9C08x96r0+pcKr9ep6h1wuZ0s9x/kSPE+nQfA28D3x/VT+3Hylh533wLeFGOeBkaazaoxxhhjjDGm6/4AiS8hZ9zpAbkAAAAASUVORK5CYII=",
+	zap = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAFJ0lEQVR4nO2dy4sdRRSHf0cGQxAEE3ys4gOZEBJ3goEQBP8AB59kowQlbowLQRAxwZ0uFWfAF7jQhWCcQFyYjQqapQsFRUHJQ3dBM5IZI2Y0+dz0wGVy7/Spftyq6qkPZjNUVf+6znRXn1Pn1EiFQqFQKBQKhcwBZoFFYLn6WQRmY+vaFAC7gSWuZakYoWeA7cDpMZO/xmJsjYMFmAG+2GDyAS7G1jlYgPmayQdYia1zkAAHHZMP8GNsrYMD2A9cdhrgZGy9k7gutoAmADskfSLpemeXsz1Lakx2BgC2SlqUdEtAt197lNSKrAwAmKT3Jd0b2PVcT5I2F8BR5zt/PffF1p49wBxwpaEBbo2tP2uAXcDFhpP/d/XqSpLk1wBgm6RPJd3YcIhzZkbHsjojaQMAM5KOSbq7xTBJL8BJG0DSG5IeaDlGMUATgIOSnu1gqGR9AKVqAGC/pHccTVcknalpUwwQQkCYAUlPS1qtaZdsGCI5gK3AN87Py5cBAy4VH6ADqsn8yDn5i1X723L2AZIiIMzwLXBD1WdvTduyD+AhIMzwB3DnSL8DNe0/i3tn9URfhIFdkj5waPlX0iNmNrqo3lHTJ2kfQLENEBhmOGxmX6373e01fZL+BFVMAwSGGebN7N0xv8/+CYgGsOBcdL8GxvoEwE81fcs+wDgCshnOAjdPGKP4AE0A9gH/OCZ/Bbhng3GKDxAKsAM475j8q8BjNWMNwgeY2iIcmM1w1MyO1bQZxAI8FQMEZjMcl/Sqo90gDDAVgCOO1w6jYQbHmG85x+yLPOoPAsIM56tQtHfck1OYZA+t6g96fQUBeyR96LjOqqRHzey3gOHrXkHT4iZJr8UWcQ2OoolRDjUYv84HmCaN6w96eQKqMMPHku5yNF8ws/caXOa/Bn2So69X0OvObIYvJT3f8BqfN+zXB+loAQ45H9vTwPYW15mdUJQ3bZaBnd3OYkMCiiaWqwW67fVGy1JjcAWY62b2WtJlmCEmoYkBsfVKuYoeQ5PEgNia8xQ9gSaJAdHJUvQYmiYGRKVl0URbOovFAHucC/nlKm0yPsDOiF8fo7SKxfTtsfdG9deXCo3OgnAec7DGfPez2IIWJUN90CgW4zzmgMpIM93PYgKJWR0RPDnV6+Swo+kZSY+bWS+xpzYGSCf+IYWEsdfqDxYcTVckzZnZhebSNqaNAV6S9GeHWtrg3n4MqD+4KukJM/uhvbzJNDaAmf0saW+1hxv7OBiXASo/5IQzMeAVMzvRXtoAcOz/vugYI0mPPZdFuIsMiCOSDjjafSfpyZRri6dO2xzQLMMMqdA2BzTgmINV4P7p3l0GtMkBBbYBvzgmH+CZ6d9dBjTNAQ0MM7w5/TvLhKZ1YF3UH0yDHL6Cgr+AAo45OFfVndUVe/dGDgYIqgMD9kl62zHuX5IeNLPf28lrRw4GcD8BVZjhuKQtNX2Q9JSZfd+NxAHj9QGGkhiQFF4fINUwQ/Z4fYChJAYkh8cHyD3MkPoiXLcAbwmoP3ho3TEHSdDLPmeH1BnAk/4uSc+Z2akO9HRO6k9AnQ/gYdIxB0mQugHaliGdkvRCR1p6YcgGiB5myBqnDzCJDY85KDhw+ACTSLr+IBscPsAkSpihCxz7AOPILsyQ8iIcugBnmc2QsgFCfIALkh42s0s96umFlA3gfQKSDTNkjWMfYI2SzdAH1bd8HWkVTQwJRzJVb0UThfoSqFbHHBQcbHAWxBKwO7a+TUH5F+WFQqFQKBQKQ+V/qJz29ZEnXz4AAAAASUVORK5CYII=",
+	wifi = "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",
+	palette = "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",
+	speaker = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAFhUlEQVR4nO2dW4hVVRjH/2scNfFCOoZdwLJMrEEiM4KuENJURglCRA8lBOVAMA9dH4qCIAgsUaKgohqiy5tEJWUXU7wQZpQklEkFXRwVJy3NLjP+etlDkTP7+/aZvc8+s/f6Pc5a5//99/edc/ZZl71GikQikUgkEolEIpFIJBKJRCKRSKRwQtkGPABTJPVIWpz86QNJq0MIR0q2Vn2A+cDXnMguoKNsf5UG6AJ+GSb5QzxTtsfKAvQAAynJB9hXts/KAUwAnjMSP8Txgr0sAnqB7cBa4MYi45UO0AF85Ew+AAV6uRn4e5iQTxQVs1SAeSPcbJteAOBk4HBK2PuLiFsawBLjgptdgGVG2EFgWR6x2vIQGQ1Aj6Q3JU0r28t/mGq0t0l6Gehskp/8ASYCLzbyrm/CJ6DTGX4XMKkID4UCzAQ+Hm3yiypA4vE1p4U1RXkoBGAB8F0eyS+4AJOATQ4Lg8AVRfnIFWAp8FuG/Jp9C/Y7A9jt8Pkl0F6kl1GTjGwHMyT/B2BhmQXQv/eDIw6/dxftpSGSm21vhsQDbAFmJa8vtQCJhzscnvcD1q+nE8g8HQ20SZrr+KkmSRMkrZJ0SYYQL0nqDiH8mcRLTXIIoSlT6sDbkpYY3R4MIRQ3UgZuyPMG+j8GgHuGiZlKBu/twApgPbANWAPMzvD6M4Gjhp29wMQsOXUDXDXC3EgeHAauHyFuKk7v7cA7w7y8H1iUIQePOq5leZa8ugE2NpZbkz3A+SlxU3F6X5EisR+Y49SZChwwLG3Nklc3wLHsuTXZYK1qWQJO7+sNmc+9I1rgYcd1zfPmNctc0EkZ+np4QVJXCOFgzrrDMcVov0DS406tZyX9YfS5xanlx/+mNhkAHsgrrlNjtcPXIHCxU+8VQ+sz7/W58ec3lX7gmjzjOjVmJ7EtNjn1ugyd48CpHi33b2jHxe5IaftL0jZJq0IIP3pjeuJ6xwHA5ZLed3yVLg4hfGhojZfUJ2lGSrdbQwive7y5yOOdWHZc4C7Hp+Atp9Ybhs7TDV/0CAHHfAHk+0U0AJzm0LnT0PnE46f0FbESuFdSWuHGSVrq0NlitHcm0zap1K4AIYSdkt4zul3rkPpK0rGU9smSzrBEaleAhF6j/VJLIIQwKOkbo5s5wq5rAd6VlLapayZwukPne6Pd1KhlAUIIhyTtNrqd7ZDqM9rNzcO1LEDCHqN9lkPjkNFurpnUuQD9Rrs1fyTHnJC5NlDnArQEdS6A9f3sefrGmtawPiG1LsA5Rrt1g5Wk6Ua7WcRaFgCYLslaNPnWIWXdqM21jloWIBnppl37gRDCXoeONdD6yRKoawFuN9qteR4B4ySda3SzBmr1KwBwoSRrUciaK5Kk84yb8FFJ5tpHrQoABEkrjYWoAUlrHXLWfNGuEII5XV6rAkjqlnS10WddCMHz9KWls91jKLcdvcCnKc0NL0nmBXClpKccXVc5tMZL6jK6bfa7c2CtTDlp9UX5DU696wyd40Obi3PDn2OTVt2WMgAsdOq9amilfRs0hj+/bp4HJow2rtP7VoefJ51apzh2CT7k0cpExbcm7gBcO/+ARxzXNdebVzcV3py7DzjLqTMNOGhYMgdxDVHh7ekXZcjBY45ruS1LXjNR8wc05gC/G3Z+zvqARnxEyUEygl7n2K5yXwhhZdF+MlGRh/Q8Wxr7gMnN8NMQY/gx1QWOZ8MAuov2MmrG4IPaHcmvNIsvWv5B7SHG2FEFmx0WBoHLivJRCBU7rMMzwdd6VOS4mp3eEXTL4jwdsdkFWO4I/Sswv4j4TWeMHll2UxGxS2OMHdp3woi9EsRjK1uAeHBrixCPLm4B4uHdLUDVj6+P/8AhEolEIpFIJBKJRCKRSCQSiUQikerzD9C1KeayVoBqAAAAAElFTkSuQmCC",
+	server = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAD5klEQVR4nO3bPYgdVRjG8f+rsQhqNEYUIUJEXD9jEU1jWgvBwmVTSogIRgRRFCwtIkhKWxWsRLtVUIONpVZioRaL8SNiUFExuOtCYrLksdgpJKz3nLnnzM7Mvc+v3fM179m583HvA2ZmZmZmZmbzJEo6S7oVeAx4FLgN2AtcXW95g7QK/AScAt4D3o+Ic9MONtUGSNoLHAeOAldOO/mMWANeBV6LiIttO7feAEmLwNvANW37zrivgaWI+K5NpyvaNJb0PLDs4m9pP/CppANtOmWfAc1//nLbTZtDfwIHI+J0TuOsDWg+81f8n5/tc+ChiNhINcz9bz7u4rdyEHgqp2HyDGhuNU/7bqe134F9JbeosLkBzyptRdKipGurLX+gJO2R9IKk9Yy6LNWY8OOM4l9f5ehGRNIhSecTtXmnxkTfJCZZrHJEIyTp5URtvqwxyVpikl1VjmaEJN2SqM1fqTFyLsKaOEBE0fuksSutz47qK9qCpHuBY8ABQMAXwJsRsbId849a4hSbuPtN/yclXdii6z+SjmauYUHScsbHYQ1rzVwL21GfTieQtF/SxoTuF5uzY9IYC5LOti5jubM5m5AaJNW/6/c6xxIPcDuaNpOcAHZXXleO3c3cnep6A+6v0ObhSmuZRudzd70BOZ+B5Z+TI9b1BnxVoc0nldYyjT7n3lRykZF0X3Oh/T8XJN2TGGOmL8JJpRNIeqK55bzceUlHMtcws7eh2/IkLOlO4Gnggf88iL0eEd+m+g5daX38KqJQaX1yLsKriQXcnDHGTJJ0XaLJ36kxcjbgTOLvWV+9zajUc8IvxTNIejdxnTkn6VDxRCMj6QZJpxK1+ajGRIcz7hzWJb0o6cYqRzdgknY1NUkVX5KeSY2XcxHeCfwI3FTtKObDRvOl/M+TGiWvAc23+q9UXdp8eCtVfFr8MOsq4LPm9y6WtgrcHRG/phpmvQtqfvV7GPijyvJm2yXgSE7xafMyLiLOAI8AvxUtb7ZdAp6LiA9zO0zz8/Tbm2BCzrv+ebIKPB4RJ9t0av06OiK+Bx4EXko9Jc+JDeAN4K62xadCRGknsAgsAXcA+4DU4/nYrTdvB34ATgIf5NztmJmZXc454facEx4Y54QHwjnhnjknPBDOCQ+Ac8I9c054AJwT7oJzwgPhnPAAOCfcM+eEB6C0Ps4JD13iFHNOOCFnjM4mcE7YOeESzgk3nBMu4JxwgnPCw517U8lFxjlh54Sn4ZzwmJTWx68iCpXWxznhAs4J98854b44J9wT54THwznhnjkn3CPnhHvknHCPnBPukXPCPXFOeJs5J2xmZmZmZmY2tX8B3TrBFD8MiM0AAAAASUVORK5CYII=",
+	shield = "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",
+	gear = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAALCElEQVR4nO1da4xVVxX+FhCmvKEMj7YUWmyqgEbb1DaKPEKa1MTSmnakjUpQFEuVEEhNClrl0Sr2l5q0tn9KpYqpCU0ZaoIhgQAFE5D6qBEJgQIztHRmQEaGGYZhZj5/dN04mTn37LXP3ufeGbzfH8jcfdZae51z9mPtb60DVFBBBRVUUEEFFfw/QsptQB4geSeAbwL4GIATAP4I4KCIdJXbtuseJBeRbGNfnCe5hWQNyZHltrNfgOR4kktIfp/k/SSD3kiSC0leS3B+b7ST3ElyOclx8Xo0QEByNMmNJFt6OeYwyRkZZc4r8uS70Ezywfi97IcgWUVyFcmmFIe0klzmKfdudWRWXCE5Pb+elxkkB5FcTPKUh1O2WYYHkneSbAhwfgHPlsYbJYYODe9mdMoZknNTZE8heTqC80lyV2k9UwKQfJxkV6BjOkluIDmkl+xqkkcjOZ8k68vho9z2ASSHAagHMD6SyD8BeBrASACTAKwAcI/hunYANxjaEcBYEbkUwdbyQ4eecqOZ5F0kp5FcQfKio/19pfbToBxlj85RtgVXADwkIn8VkTMi8gKAPzuuybQEDkGeN6Dd0KYFwHoAv4qsuxPAYyKyv9ff/+W4bmZkO5wYYmiTFVccv58AMFtEGvHRkLULwCsR5gwCWCoibyX8dtRx7XX1BrQ5fr9UcD4AiEgtgE8D2BOod5WI/KbIb643oOQ3IDeQnOGY8BKfRt20rSXZkWHS3eCwaYLj+i5dvQ18kLzN0dnTjuvvI3nC6PgOks8Y7Wp0yFoTzQkG5LkPmATgw5QmjSIyySFjNIAfAqgBMA5AE4AGAB+o7HMA6gDsFZFzRrv2ASi6u1b8GsByAB0AxgIYrKu6oQBGABime4sRAC4BOCQiriG3tCA5yvGklWXDQ/Jl41vlgwskH89iT56TsGsVVK6x9lAOMm8E8FuSC3wvzHMIqgLQqq9vMVSJSEdeNiSB5Ahdjk7NQfw/AHxGRLqtF+T5BrzkcD7K8RaISCuAL2mcKjY+BeBrOci1g+QNJNcYxs3uci75SE4meTCH+eCUvv0mZB6CdIXyCQCz9N+ZupG53fhmHRaRkge/ekId9ZIyKGJitYj8IqpEktNJbiK5i2R94FPSSXJ+VAMDQHK12hQLjfqARjNwYcYD72JYHc24SNDw+SEdGnviolJaTpI8RvIIyfcMfdxo0escgkiO18DZ2Cg9BV4VkaVZL9Zh43YAEwFM0T+f1Q3aaRG5GmIcyeEAqjRWlUjkIjlRfTIqRdRlALeKSHOIPSD5ZMQn/6DPBNXDhmqS3ya5w/EmtpGsJfktfXByA8l1hv4ujqFoZyTn15Gc7Kl7BMmnSf4ng77LJH9GckywE5Jte9Fgw1OhSkYpiywUZ0jO8tT9FUPgzIIGkjVBjuhr28MJc0USHghV9GjGTjeR3KtxlyW6+7TqFGXNWTpoRTfJ9aHUR7XvFgexrIAjJMM2ukpmTcNFXZb+kuQTJOeSrA7QJyS3RnJ6El4LuQl6VrHboKc1K8Wyp7LBuvxKw4ogJX11bozk6DT8OMC+tUYdXtTKYsostJLbghX9T9+iyMNOMXSTfCSDffeQvGqQ/0YshzznUHSF5F2RdI32nHCvkHxbh6ut+n+fxcKHPjkCuhixnM7VRaO7G8fi5jTupoeuZ42Oq9M1fh/nkRypewVrmGS9h32bDPI6Sc4J9YWvUurmZ2GAngm6ZnfhTctTq09rrUFei3WzpmEIF1IJAd5Q2rdlzKNmpWTa9elT68J2nyWdrlYsN8EUEjHkHhzoTR6OAmU3W1J+qJPbygw6djjk1mXJ6dI34axDdq1R1nGHnNm+9vl0xDcSan4VSQ4zyA4J3C1zyG61xKZI7nPICdvxGgyY55kC9AOj3I875LSTTIs4uuSP1BVTGu4wyHndIeMbWW00jasisg/AAgCNhuYAsI7kTYZ2rjaHRaTFqLMPROQygHcczW42iHJxjr6XNQJgnthE5C8A5gA4Y2g+FIDlxMvV+RgH5y4ZtxhkpBHMoIki+0lOcbTrA69gkYgcB/AFA8kVRtoHXSqNpoXIcNkAZd+5MAPAAc3SN8M7WiciZ5Xad8TR1BL7/8Dxu/cTlUGGhdK4V2mKLkwD8DbJu422ZeMFich5AC86mlnmANcNuDd0Ejbkkb3vkqO8U+vqbiKAPSTnWRqHxKtdT47lBtQ7KIxVAB7ztKsnvqoyiqHNOs+IyE8BmA7aAYwBsDMkQuAEydmOpdlxoxzXjrU+y1ugAb73HbLfzCB3pUfU9lpW0q7LiCG6/U6DiQ1AcqmhI7WeoYjBJN8yyM20ftesf2uE4KrvxGwxYINB8UmjrOqEoh1JqLW8Cfrk/8Egr4XkjQE+8IkQbMqqJ0nxHCOLzKzUeEOpsZ1lSTdCHf8dw7BTwLoIvphrjBBsDdVVUDhOg2MunPAZtzVw5lNwo12HwN/pucUBzwOZc7GKNmkiuCvc8VwMXZaYCHVs/FwG2TUlPJL8chSHfGT3VIPd4Qc1hshiAWsDdKyP4GAXTMl8HjavcOg7T9KVJ+FUMkNDty7sDuHCKC3ltUiOTsKWQFpKtY77TygVZ5eh/sSWrPoKSgcpyciFJpKWwJZLnyjvMjYx60c+zlda5BIll+01krGS8GioQx4wdvDhIEV99T6i7IVQnPMd80nOUjplKILOMwrGPGVQ5IoLZdUdg5zrlSihqUuWlZ4FO136LOO15RDGelDjBRFpFZHnAUwHsBRAraMGRRuA7dp2qois8SnApMeTbwC4NU4PsMPVwJKgMVYDVmnr5hYAd/QsvtFLRiHT/GpoRrk6aZqGu6doPP9sIWs+JO2V5OaI+WLN6pMLwZKMnM33dLI+pjya8wkrhG5NAzKFaksJzROLhSCuVJJxvtRBFzr7U54YyfkRkvTqdVm6yacGqc+ybBWAn2fuZTJeBfBkaF5XKEgeAnCvoWk3gFN6JHsUwDEA/wRwLPdif1r11qfwqhUHfVOXIvdrmHHPsYakpfpirsYuzuEGUJd9nyxTn8YY7Nucl36vbbmGGf6mNRFiow7ATK3lUDKQHAogbQjsAjAir2HSl5bSDWCVGhUbUwEsykFuKnTZ2pnSZHBO/QUy0lL2APg6gH/nYE+5akeUrbZRSGRwuDpstNYFateOtCqH5pI+Oc3KlHsZgOsMdr+ImPYISn2cr2/OTboxu1nLGk8AcBHANgA/ca1QSDYonaQYJotIg8Wufg1DGRtTSIPkMx5VFU+4ShIbKrBHy4UrK3TJ56qmPsEhw3p+3BMdmuGYOOQaqrBfV/VEXcluad8LWJnB+T2xO+nMguQ7juvMVENf5FmyrBgyVa/VFKjQIkgLAPy959mFVj5xhayHB+otiv54A/oU0NbA1uZIbOnxALZrsY11WnbGlaSR2yooz+LdxeBVQFuHpN/nYOt3PdrmFoLoj2/AZ5VpME0TwXeUscZoAbkF2kr+KUM9Imw26rZ+fuQIgBe0atZlAM8D+HwEcwHggla+cm3WBg4iFP3riaO987OUPLwhQoy/Kxd2c7mhBxcxcDotL0s5PFnZDe/2x5O7KPCoDZGGBgvtW/ms2zzkntKweznmx9JAa5C6CK1paPbdHCm1Mo3d16SfWfQuKjggQfLBjN9/bMs6NCjF8nAveS1KOij3V59KDx0elmtlRgu9/Foo20Cpj/frJ3SX5F3ecsBAywrUKIE2qVRaG8mSH9jkjX75SXMlcs0G8EUNE5zUirumxL8KKqigggoqqKCCCvo7/gsnazNszNs2VgAAAABJRU5ErkJggg==",
+	layers = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAGgUlEQVR4nO2dS2xVRRjHzwVRUYqRIoKvEg22WjVFowIhvlKCkhAIpiuNcUVw5cKFCQuFFWLYaEwaF4JRYwjEhQIralFDo4DGF2qQaH2/qoBV0Fva/tx8Vy/X23vPmW/mzJxmfkmTpkln/t93XnP+882cJIlEIpFIJBKJRHKn5FuACcCsJEkeSpKkW/7UlyRJb6lUOuZZ2uQGOB94FDjO//kDeAK4wLfOSQdwNrAW+LFO4mv5VQ7SdN+6Cw8wDXgA+DJF4mv5FngYOMd3HIUDmALcBxw1SHwtR6WtKb7jKgRAN/C+hcTX8gnQAxRy4OEcYCnwloPE13IAWOk73mAAlgD7ckh8LfuAJb7j9wbQBexWJnFIfjTsArp85yM3gHbgBWBMkbR/x/xN3g3SMg7sANp958cZwOXAs8BpRaJOAk8BF9dpfxawARhWtD8mB+IqP1lyAHCRnK1/KRIzIgfvkpz7m5dPlhzg+4wErrB4xc1xkyUHWLwn7wJusKCnw+Yzx06WHJDRr2nEXuAmB/quk6tJQ3g+k9KvqWYAuCMHvYuB15Va/ftM4tf0AJ8rg/kI6PGgvxs4pNT+lVz1U32I1/o1n4bgzUgsHyhjycdnsuTX+DlrGlB1NWvdVzc+kyW/5jtgHTDNukBLyPNsnWjV0A8stiVqowwLTRkCHglq5NAEYLpo1vhM48AGrZAVCgEngMeAFmuZyRmgBXgc+F2Rh3s0AnYadHgS2Ay0Ws2GR4BW4EmJLSs7NR0PZOxsFLjfavQBIVOboxlzMtCozWbzpEcyapyaJMmL8qKzKOP/BgtwK9CXJMlLEmMWsubwjI67xBk05TUbfo4vgOuBVxXxjwALtSLWyAPVlDHgZWCBtcw4BlggmjUG3gngXluCWsUNPKU8EDuAK62IcgBwmQULuyxtzHUhcI4ciL8tCAxmsgOYbeEEq0ziXJqH4MpkR9YRQTV/StAXOhc8cRwtYi9rxvmVKzv/WyxwjXSueVMelgMxM0fdlUmjYwrdyNyF/4oKGS1oJzuGJCnnOtRZmTT6wULib3al0xgx7fqVwX0jSTrLoq6K2/mFUtvbwF22dDnD0mTHoNa2BkqS+CNKLR/7mDRSIcGvBD5UBn/YZLJDToL3lH1/JtOtxa2stjjZ8Q7QnaK/pcCbyr6+tn0b9I5MdqwFvlcmZz9wW532b5FSFg2/uB4IZEYKrHpFXBl4A1hlOv8JnCcVBT8pk7UXWAhca2Eo/JsUkRnNXcjtdpXkpiy56pXFhOYAM+QeXI8DwDJF2zNltk1bOafxa4ZFg3HBFbBMclGPw8AM07YTYH2KIFR19mIDbFHaAFk5JX3OVuhOO0++3rSPJOOYXlVnb8lnaobarxGLPsuzpt+0r6wHALkPb9fU2QNtFnymWtR+jaxr2G7wrFEdgDS3oHqcBp4D2hR9dwKvKB+u49JGp0JHm8RialGrbkGNHsJpKANPa7xxhc+k8muAuaK9rIhf9xBO/huGbrVgPW/SDMsyPPRUfo3Eu0k0mzIqOdMNQ2uEBVFnLxbDu3XaVvk1oa1raCTUe529vPjcLUPJLfK76Yth0OsaGgkvdJ295XUNd+atvzqQbuCgMojcKqaLvq5hQopQZz+Z1jXUJdQ6+8m6rmFCqqxnbZ39fuB2hY5FQJ9Sw88yYCjevkNVIwwb1vONGfrttGBRh7ci0hR5o3Y+xq7ah0Lz0hjemmDx7lcDDyqNNier513vQ5EhvnbJ0WprdU5SnFt95o4DezRVv8A84Bmlz1LxmbR+TVm0GJdKyszcnppb3nFgjWmblYYbladXtnjpULQ/H3jesvWcllHpe75Cf0eTZ82IqnJODKU0gWyzEIjWZ0qL2q+RE2dbyhNnq2k/WZco2biUbfhMjVD5NYa3zoZLlJp16GWRnozftT7TGUnQ7EMh6yM2+1ik53WZKrBcWeJ4CFiu6L9FYtCsEFph2n9FhPeF2gYejsqvsbhQe6NpzLWCvG9VkNJnUvk1FrcqcLMlZgimVlWSBqvaHLR0cLUW9cFcNoUNwdaVpF0tP8bVy5ZiyX9b5KJPbBRtIqlRIEXbsszGENf/lmW1hD65HUIxQS6EVt4RSjlN7sSNWwOh4FsXN+2vMMTNuwMh4O3r3ZYUhkZAH3DYHcR2A76InzAJhBw/4pOPX1NU4mesAiB+yC0Q4qcMAyF+zDMQJuPnbAv5QIofdI5EIpFIJBKJRFT8A58n55rP8FLCAAAAAElFTkSuQmCC",
+	sliders = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAADqUlEQVR4nO2czU5UMRSAT41oIiCwkAUB1IDozkTRxJ+n0B3KlqiJS1QeSQ0+gW8giluNuiEG/AMkAgtMPjcXMyLM3Du0Pe2d8yUsJrS3Pad3Or2dbypiGIZhGIZhGIZhGIZhdApOuwOxAHpEZLh4ueSc21TuUr0BeoFp4Dmwzv+sFf+bBnq1+1sbgC5gBljZJ+kH8R14DBzX7n/WAKPAYoXE72URGNWOI0uAKxXv+oNYASa148kK4LSn5DcOwoh2XFkAHAPeekz+Lq+BrtD9PxK6gQg8EJGLAa57SURmAlz3H7J+DiiWjx9F5FSJ4jtFWRGRcRE5WqLOVxEZc879OmRX60mxhm/FJjAL9DXU6wceAVsl6t/RjXIfgAlgHtjwMNeGZAu41iSOG8D2IdvYKHIxETP5q54SFJrZEvE88dTWajuDUPkzAJgXkVtV6ymwIyKDzrn1ZoWAgWKuL/OZ0IoXzrnbVSq0MwA/ReRk1XoKvHPOXShTEHgvIuc8tLnhnOsrUe4vdViGHkSVm0ttNdjOALwM0I8QnAX6WxUqpqAzntqsnJt2BmBORNbaqBebrpIPUvc8zf9rRW7Ck9ky9HqTOG5mtwxNCeBuiQRtF0vNgYZ6A8BcyeRPhYyhDlsRH0RksETx3yLySUQQkbGS084XERm3rYgmAA8POYU04752fMlTbEe/CZD8hRjb0clMQYexFoAhEXklIkOeurMiIledc0uerpcevq0FYBJY9nDnLwOX42RBgZDWAjBSfJPVLgvAcLM2siaGtdAwwFXeDd9qr6XEthaAHmAKeHbA9vkP4GlRpidOFpRIwVoAuoHzxd+JcNEmRu7WQmhibEdnbS2EJuhzgFkLynSstRAaj9vRMayF0GRtRcS0FkKTnRWhYS2EJisrQsNaCE1WVkQW1kJoNK0IDWshNFlZEbGthdBkaUXEsBZCk64VUQdrITQxtiLMWtDErAVlcrcWQhNlfZ2DtVD7syRSsxY68iyJFKyFjj9LQtNasLMkGohtLdhZEi0IaS2kYGV0LKlbGXX+kd4uSVsZtd1nF7My9KmtlZHRj/Ra4cPK2MnZitDGp5WRnRWhTQgrIysrQpsQVkZWVoQ2SVgZdT4rohUhrIysrAhtfFsZWVoR2viwMuIuQ3MiByujE7YizMrQxKwMZczKSABgCPjsMfnL9oVMRVKzMjqSFKyMjsfOkkiEVM6SqPVzQBWA7j1q4pZylwzDMAzDMAzDMAzDMIya8QeH9VV/mbXeJgAAAABJRU5ErkJggg==",
+	moon = "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",
+	eye = "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",
+	layout = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAE2UlEQVR4nO2cS2heRRTHf6MWGh+pmGAtptD6AAXdFLuxWxdKkcZm7dKFVCwWFaS4UBB3ruuiK1FwUQUfiK4tiK7URbSoFYuP1gdJW22hSf8uMoGQJvfMlzvfN4/Mb/dx587533O+uTNz7sxAo9FoNBqNRqPR2Gy4PjdL2gkcAPYDu4Ep4KaemuaBX4BTwHvA+865SzXq2zCSpiQdl7Sg4TMv6UVJW2rR1wtJ05IujODBVvONpHtK19fX+YclLSZ4uGX+kLSnVH19nT+d+OGW+UvS7tL0rUdQJyxpCpgFbh40cEPiK+Bh59wCBejr4rrACl/J6OEA9gJPrfidu751MVuAH8qdBq6PIi0e54BdwGTO+qwhakgLOBDwcN8BTwDjrifeoUeAfw2btwOPFaCvH5I+MTqdWUm39jZ0rd19ki4btt/OXV8MQ98bRqajPNHatl82bH+duz6rjpA+4DxwS0eRbc658wOrD0DSDuC3jiLz/jWarT7nXGfrCwmAOitYei8ODcu+RWp9lv3QYWhjSLQAJKYFIDE1BGC+66Kk7cMyLGmbUeSCVUcNAThjXA9KCWyQR4zrXSMkqCQA3xrXj0raF9uopNuA141iP1j11BCAE8b1rcCnko5ImuxrTNK4pBngC+Beo/jHVn01zANuBH72uZecWPDJuF+7ChXfAny28dXUOtbguOV8amgBzjnnP4if9Hn4HJgH7nfO/W4VLL4FsBSEK8AM8GdqLcBV4MkQ51NLAFgKwhngUeBsQhlXgWedcx9Gq9FIt/ZKlA3DvqS7fZp61MxJ2j/o81XTApZxzv0IPAS8YM2SI7EAvAnc55wzh52rqaIT7rh3DJgGDvox+y7ASh9YXPSz75/8OP+DkNHOelTXAlYxCUz4FRNbgRsi1Lno//WXfQv7J0Kd62O9+IZqfIP2q1obuhEHpLRf2trQql5Bkg773FCKRVoPAp8PujY0JABF5Nv96oc3Ev+ptgOfDbI2NERs9vl2vzb0rUxa9ATwrqSgDj9EcAn59mLXhppImgnogC7GzrdLOhVg92lJO0c02hmUs34e0tshY76y3Lgi6U5JzwSUnfWjo64FXKH+mJD0nP/TWRzsHQBv9FAEh8XmGAWsXY1lbIukLyM6ry9zfllg9mtXYxrbKelcRCdulEVJj6/Qdd4oPx7NCdf6ZIdhey62wT1+I1oqFiUdWqWpk6gOWNsno7WfW77duim6AyLbH3jiUlq+PXf6HlWQPN9u/cty/l5BhKl7+fn2Eskp3973HRzBF6O1n1u+3bopugMi2x/oFVRivj13gjsoP6M8kUHK929gr3PuNBV0wsWfFVF6AGo5K6JYajgr4r+uQjW0gLrPYsid3PPtm2EYepdx/SXnXNy061LTPQm8ZhR7ILbdUVPDWRGduafc+4DiF+dapNbXzorInBaAxLQAJKYFIDEtAIlpAUhMC0BiWgAS0wKQmBaAxLQAJKaGPWK56+ukhj1iuevrh6R3jG8Ol4a1Ryxgm9JHueuLYSj3PWJZ67PqC/keMJbzmWx+7Wi2+nqfGZf7mWy567MKhS7MyvpMttz1dRE0D8j9TLbc9UUjxz1iJemLFYSs9oiVpi9WELZIet4bHTZXJB2TdEct+lZS/B6xkvU1Go1Go9FoNBqNzcn/Zt872A6RKoIAAAAASUVORK5CYII=",
+	globe = "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",
+	users = "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",
+	toggle = "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",
+	bookmark = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAADjElEQVR4nO3dS4iNcRjH8ed1mcyMW8jCBqVEmgUpyT1pEiWxnR2W7GwsLC1HNigbSxaa1SSkZmFjQ1Gi3G9JEoYZl/la+E/pzJjznvc873neMb/Papo6///v+f/m3OsdMxEREREREZGpJCtrYWCdmR0xs+1mtszMZpS1V0l+mNkzM7thZmezLLsTHSgXoAO4AIzw/xgBzgPt3ufleg8AOszsqplt8ly3QgbMrDvLsm9eC07zWig58x8fvpnZFjPr9VzQ7R6QHvNvl/m8UhGY2Vqv5wTPe8CRKXD4lmY85LWYZwHbHNequh1eC3k+BH03s5le61XccJZlszwW8iyACTfKskn18NSqebxfBUmDVEAwFRBMBQRTAcFUQDAVEEwFBFMBwVRAMBUQTAUEUwHBVEAwFRBMBQRTAcFUQDAVEEwFBFMBwVRAMBUQTAUEUwHBVEAwFRBMBQRTAcFUQDAVEEwFBFMBwVRAMBUQTAUEUwHBVEAwFRBMBQRTAcFUQDAVEEwFBJtsF9Iz+3MhjblmdszMdqZfXTez3izLPgVHi1PvqneO++wGno+zxWtgv+M+LZnHTdmBgQXAuXr7AJeAxVWfx12ZgYGDwLschz/qA3C4qvOUoozAwFKgv4GDr9UPLK3KPKXyDAxkwGHgUxOHP2oQOA5Mj5qnJbwCAyuAmw4HX+sWsLrV87RMs4GBmcAJYMjtyMcaSnvUvbhgs/O0XDOBgfXAXbdjru8usL6seUIUCQy0A6eAnwUO8RWwD+gGnha4/a/0sna21zyhGg0MbAYeFDi4kXRwc/5aq6OJIh8DO5udJ1zewMA84HT6C2zUI2D7BBk2AvcLrDsCXAQWNjpPZeQJDOwBXhQ4oB/pL7zu1WrTk/lxYLjAPm+AA3nnqZQcw10ucCAAt4GuAnm60m2LqJu1nFNsQsFBJ/K1yBuomkzT0hu6z97hfE/PgfN8A8BKx2zLgWueAb2yuXGa6yNwFHD/oih9vNEDvPcI6p2vaQ4zXQGWtCDnkrSXCkjeAj0BefcCL6d6AZeARYGZ56c3dQ3/y62ozP/UYP4nwK7ozKOArcDDyV7Alxy5fwK9QGd03lpAZ8qW5+OML9F5xwD66oS+B2yIzlkPsCFlnUhfdM4xgFXpZWStYeAk0BadMS+gLWUe7+OMj8Cq6IzjSiX0pa8BB9PPa6JzFQWsGWeeah6+iIiIiIhMGr8B8JMbdTVilZcAAAAASUVORK5CYII=",
+	pointer = "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",
+	sparkle = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAEiklEQVR4nO3c3YtVVRjH8d+KVCJHSVKjNG9CU3PqxurGwqJS0LoJuoiCLoIggqgbCXqhvyC6rahLc6K30V6ueiXSqbQJnQwvjCgIysYZC8aZ6dvNs3FzOnM8Z/bLOuvs5wMb9pw57PXsZ52z9l4v+0jOOeecc84555xLBHAVsCZ2HEVcEjuAgoZtS9YgVMC22EEUcWnsAAq6SdJ87CCKSL0Cdkiaix1EIwHruGBd7HgWK+VrwM7c/m0R4ygk5Qq4N7e/N2IczQMsA6ZyTdAksDR2XIuR6jfgbklDub9XSrozYjzNArzL/x2IHVcjAGuB820qYCbFYYkUm6DHJS1p8/pSSY9FiKc5gJXAmTaf/syfwFAXh+obqX0DnpR0RYf/r5L0RI3xNAewHjjX4dOf+RvYEDvegQO83UXyMyOx4x0owCM9JD/zUOy4BwKwucump9U0sDF2/EkDVgMnF5H8zClgbezzSBIwBHxTIPmZI8Dy2OeTFOvtlpH8zFiKveQorM0/VWLyMyeBTbHPr68BDy/ygtutf4BHY59n3wE2AO9UmPhWbwHrY593dDa287z1Xut2DngWWBE7D7WzFW0vAn9FSHyrM8ALA3+7atOIe62paTeeH9t5G+7YAyyrKy+hyoNbO7tT0h5Ju1qmEfvZtKSPJI1K+jSE8EtVBZVWAfYVHpZ0o61Y2yHp2rKOH9nPkr6QdEzSuKTxEMLvZRy4zPkAbJu3bZBWrM1L+te27DxLUXUTdI2k223dzm5bvZCCSUkfWhP0WQjht9gBFQYsAXYDIzaB3m9mgAPALqDdnPPgANYAz9kcbmx/WH9gdey81M5GPJ+pePhhIVPAPh8pvbDSeaTG5O+365PLA+63dZ5VmQIejH2efQ3YWHAWbCETwHWxzy8JwCrgqxKTf6SRF9kigOWWuKK+9gvtIgFXAj8WSP5PPhVZELDJlpj06qy3+SUBHlhEBfjdTpl67Cfsjx3vwLHOWjdN0ZR3sipiYzYXsy92nAMLWOEPaEQUQpiS9HKHt7wUQpiuMaTmGbSH9JK0wCKuN2PH1Ri2dKTVPbHjagxbY3Q2l/zJVKcRk7oIZ0IIM5I+zr10KIQwW3W51he5usxjJlkBZjS3f6imMrfbVpqUK+CT3P7nNZV5i6Sbayqr/wGngVM1lncCmCjzmKn/ZtyXdf1oHzAsabPtbw0hHC/juCk3QZJ0VNJ3NZX1dG7/qZrK7G/AXcAdNZRzAzCXu+2dA7ZUXW7fs2GJSh+ssLnpH9p0/E408umaOlnyP+gw+nrQJ/wrYs1Ou09+q++9OSoRsA14o6XNv5g54HWg59+xrvT5gBTY9OV2SbdKuk/S9QUPOSHpPUmHJY2FEH7t9ObUb0PLgD35Ml9Sn6L1aRrXC2Ar8FqPTdAs8KpfC0oEbAHGu0j+UaBos+XasdvQgx2SPwpcHjvOgQZcBnzbJvnHPPk1seYof02Y9WanZnafn3kldjyNYx20jN/txAAcB8bLPGbqEzJ1e986WKXxCujN4bJn4LwCejPmwwvOOeecc84551wR/wH4NcdDtF9GkAAAAABJRU5ErkJggg==",
+	key = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAAEaUlEQVR4nO2bzWteRRSHz02sUtsoSFuwSXGXjctW020F7VYptPix9W9wI8WNtbrTbvxYCDVQLEasC8GFuharO4W6MI1tLdgobbXQguZxcwIhJu+ZuTP3nbn3PQ9kk5l3zpnfuXfumXPnijiO4ziOEwwwDywBt/VvCZgv7ddEACwAN/k/f3oQOmaE+OsslfZxsASID3CrtJ+DJFB8D0AXRIjvS1BuIsX3h3BOgIMqagg3gYXSPg8GF78gLn5BXPyCuPgFcfEL4uIXJDLPd/Fz4uIXxMUvSG3iT3U5eG2omF+KyMOlfZk4Iq98X4JykiC+ByGVyDzfCsLh0vPpFRnF9yDE0iLbqSYz6j1tUs3a0tPekiKkv4JMJMdV7C/hW5JzCRnnMZRB7IRz73CbpvlWRI6KiJ/zsehyh+tHEQ3GscP1w7jbkEH8mCD4cfSN+A63IB3ucIssKU2XgwNTIrIgIkdE5KCIzIvIrIjs1i5/i8hvInJJRL4Xka9E5Lumada2GS8m27mlmYxE/ObTpmmOhc+wUoADwGngaovl4Ir+dm7TmOPY4fY77QT2AO8B91oIv5l7wLs65rh2uP0NAPAC8EcG4bcS9E5E35Qdbv/yemAH8H4msVMIqlAOKq8HHgS+KCD2ZqLKw4PI6/XK7534g6FPy87g0AduDL8Ap4Cngf169+wAZvV/bwDLkWPemVTx90ZkO8vAcd2QWeNOASeAy4FjrwK7rXEHh+b5IZwFdrUYfwb4LNDGyW5mWSm6ww3ZZL0FtC5z6N3wQYCd28C+vLOsGC0RWJxNEX+DrSngQoC9U3lmVznAdEBtZ7nNsjPC5gxwzbD5a8gzpvcAhwOuxuMd2H05wO6Tue2Oi5gr5ymjfVlEPkn0Zys+FJEVo4/lW7XEBOCQ0X5uuzp+Ck3T/CMiHxvdLN+qJSYAVq3km0RfRvG10d6vOs4GYgLwqNH+U6Ivo/jRaLd8q5aYAFi7ztVEX0Zxw2if6dB2pww/faucmAD8ZbTvSfRlFHuNdsu3aokJwHWj/fFEX1LGtnyrlpgA/Gy0H0n0ZRRWnn+pQ9udEhOAi0b7812UBIBpETlhdLN86z/6MtvCEqqN3ZcC7D6R2251aHXyiiHEZSBbSgg8pMW2Uaz0uRgX7LiWGRaNbo+JyEc5BNExFkXkgNF1sYsSSJUAc4EvZN5OCYLebe8E2LkLzOadZeXoccEQLrRZjnTZ+TzQxpluZlkxelZzNVCga1rPvy9g3GngxYDnzDq/A4+MZ9aVARwD1gKFQh+Up4FndBm7H3hA3zEfBd7UPqH8CzxbWoeiAK9FCJabV0vPvzhAA5wrIP5Sjpf+gwDYCZwfo/jngZ2l510Veie8outyV6zpM6S3G67OAZ4Drncg/o2Jf+CGAuwCTuqJtVTuAmcmNtVMAdinp6GtOs5WrACvA/tLz2McjOMz1UNaz1//THVu02eqV/Vdw0X9TPWHiantOI7jOI7jOI7jOI7jOI7jOI7jOM7g+Q+d/nW9B3l4sQAAAABJRU5ErkJggg==",
+	activity = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAABmJLR0QA/wD/AP+gvaeTAAADLElEQVR4nO3cQU4UQRTG8VckJrgzcAJJ9AZ4AjbEGFe6RXSjrr2EBzC4Iq41REmQlR5AvIJ4AkKMC4kY+LtpDBlnul4XVVMz3d8vYcNUp19Xzbx+/aYyZiIiIiIiIiIiIiIiIiIiIgUBt4Ed4GfztwPcrh3XIDSTf8z/joFbtePrPeDDmMm/8LZ2fL0GrABnLQtwCizVjrOkhcrnfxaJ4ZqZ3Z9iPMMBLAJHLe/+C/u1Y+0l4JFj8nufhmqmoOfOcUpDuQF3nO9+paESgDcdF6DXaWiqgGXgpOMCAGzWjr2EGveAJ2a2mHDcgwKxDAuwABwmvPt7m4am/QlYN7OVxGN7WQ1NewG8peckSkOpHH0fgG9DS0PT/ATE+j7nZvbQzE5bxvQyDRUHXHf0ffaasfuRcXoo68rZ91lvxm4OLQ0VBxxEJvUQWGjG3gB+R8b38qGsCGff58XIMUpDuTj6Pr+A5ZFjlIZycPZ9tsccN5g0VLoM9fR9tkb/EUL4YWafI8cN56FsZN9OTgct58yehgpex2V59zW17NvJYaPlvEvNJLdxp6HC1zHOcZZFaFazhCPgeuTc2aqhyP6jUnZicXnuAWvei+xoO4RwEhnzLvL6micNAStmdq9beFlE567Wl/LnZvbaMW7XzP60vO7tDT2dgT1QY3mC+lTgvHshhO+xQSGEY8f5W6shYNHMHneOMI+rz12Bm1enm9NVqyFgI2PsXeS5CVu+8i2pPLtqNeToQ+XWv+31qdVQSh9KxkhNQyl9KBkjpTeU2oeatpkszUYl9oaS+lAyQZc05Nx/9KX2Nc2VLmkIuBsZR1sfSibwVkPAx8i4o+YBTbpwpqFVx/6jl7WvZS45H8pim7vOmuacpHCkoZi92tdw2VyUoSNiLeqYV5niGCZnNTTJv/1Hs2KmgvFwPpRNshVCOM8c0vA4qqFx1PfJJTENVe/79EpCNbRaO+Zx5u4ecEmXaugghPC1YCzD0zENqe9TgjMNRfcf1TTPKcicaciz/0hSONLQGXCzdpy9BrxvWYDd2vH1XuRH//qzNWSW6WcvRURERERERERERERERERkFv0F8TEPu1wqD8gAAAAASUVORK5CYII=",
+}
+
+-- decodifica base64 (para gravar os ícones como arquivo)
+local function b64decode(data)
+	local map = {}
+	local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+	for i = 1, #chars do
+		map[string.byte(chars, i)] = i - 1
+	end
+	local out, buf, bits = {}, 0, 0
+	for i = 1, #data do
+		local v = map[string.byte(data, i)]
+		if v then
+			buf = buf * 64 + v
+			bits += 6
+			if bits >= 8 then
+				bits -= 8
+				local byte = math.floor(buf / 2 ^ bits) % 256
+				out[#out + 1] = string.char(byte)
+				buf = buf % 2 ^ bits
+			end
+		end
+	end
+	return table.concat(out)
+end
+
+-- grava os ícones e devolve o "content id" de cada um (só com executor)
+Ext.iconIds = {}
+function Ext.loadIcons()
+	if not (Env.getcustomasset and Env.writefile) then
+		return 0
+	end
+	pcall(Env.makefolder or function() end, "SillyOptimizer")
+	pcall(Env.makefolder or function() end, "SillyOptimizer/icons")
+	local n = 0
+	for name, data in pairs(ICON_DATA) do
+		local path = "SillyOptimizer/icons/" .. name .. "_v2.png"
+		local okExist, exists = pcall(Env.isfile or function()
+			return false
+		end, path)
+		if not (okExist and exists) then
+			pcall(Env.writefile, path, b64decode(data))
+		end
+		local ok, id = pcall(Env.getcustomasset, path)
+		if ok and type(id) == "string" and id ~= "" then
+			Ext.iconIds[name] = id
+			n += 1
+		end
+	end
+	return n
+end
+
+
 -- roda um bloco em função própria (compiladores de executor têm limite de registradores)
 function Ext.run(f)
 	return f()
@@ -888,6 +1075,24 @@ local function text(props)
 	props.TextXAlignment = props.TextXAlignment or Enum.TextXAlignment.Left
 	props.Text = T(props.Text)
 	return make("TextLabel", props)
+end
+
+-- ícone: imagem desenhada quando o executor permite; senão, versão simples feita com formas
+function Ext.icon(parent, name, size, color)
+	local id = Ext.iconIds[name]
+	if id then
+		return make("ImageLabel", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(size, size),
+			BackgroundTransparency = 1,
+			Image = id,
+			ImageColor3 = color,
+			ScaleType = Enum.ScaleType.Fit,
+			Parent = parent,
+		}), true
+	end
+	return nil, false
 end
 
 local function tween(inst, t, props, style, dir)
@@ -1337,6 +1542,10 @@ end)
 
 Splash.start()
 Splash.step("Carregando tema e fontes", 0.12)
+do
+	local n = Ext.loadIcons()
+	Splash.step(n > 0 and (T("Ícones carregados") .. " · " .. n) or T("Preparando ícones"), 0.18)
+end
 
 --------------------------------------------------------------------------
 -- MOTOR DE OTIMIZAÇÃO
@@ -1354,10 +1563,47 @@ function Ext.inCharacter(inst)
 	return model ~= nil and model:FindFirstChildOfClass("Humanoid") ~= nil
 end
 
+-- FFlags (só executor): guarda o valor original e devolve ao desligar
+Ext.FF = { orig = {}, owners = {} }
+function Ext.FF.set(owner, flags)
+	if not Env.setfflag then
+		return false
+	end
+	local any = false
+	for name, value in pairs(flags) do
+		if Ext.FF.orig[name] == nil then
+			local okG, v = false, nil
+			if Env.getfflag then
+				okG, v = pcall(Env.getfflag, name)
+			end
+			Ext.FF.orig[name] = (okG and v ~= nil) and tostring(v) or false
+		end
+		Ext.FF.owners[name] = owner
+		if pcall(Env.setfflag, name, tostring(value)) then
+			any = true
+		end
+	end
+	return any
+end
+function Ext.FF.reset(owner, flags)
+	if not Env.setfflag then
+		return
+	end
+	for name in pairs(flags) do
+		if Ext.FF.owners[name] == owner then
+			Ext.FF.owners[name] = nil
+			local o = Ext.FF.orig[name]
+			if o then
+				pcall(Env.setfflag, name, o)
+			end
+		end
+	end
+end
+
 -- limite de FPS central: o "Limitar FPS" do Farm tem prioridade sobre o "FPS desbloqueado"
 local Fps = { original = nil, unlock = 240 }
 function Fps.apply(Active_)
-	if not Env.setfpscap then
+	if not Env.setfpscap and not Env.setfflag then
 		return false
 	end
 	if Fps.original == nil then
@@ -1375,7 +1621,19 @@ function Fps.apply(Active_)
 	elseif Active_.fps_unlock then
 		target = Fps.unlock
 	end
-	return (pcall(Env.setfpscap, target))
+	-- FPS por FFlag (executor), junto com o setfpscap
+	local flags = { DFIntTaskSchedulerTargetFps = target, FFlagTaskSchedulerLimitTargetFpsTo2402 = "false" }
+	local okFlag = false
+	if Active_.fps_unlock or Active_.fpscap then
+		okFlag = Ext.FF.set("fps", flags)
+	else
+		Ext.FF.reset("fps", flags)
+	end
+	local okCap = false
+	if Env.setfpscap then
+		okCap = (pcall(Env.setfpscap, target))
+	end
+	return okCap or okFlag
 end
 
 local function getProp(inst, prop)
@@ -1694,8 +1952,8 @@ Ext.run(function()
 		  end,
 		  custom = { on = accOn, off = accOff } },
 		{ id = "fps_unlock", cat = "DESEMPENHO", title = "FPS desbloqueado",
-		  desc = Env.setfpscap and "Libera mais de 60 FPS em telas rápidas" or "Indisponível: precisa de executor (setfpscap)",
-		  locked = not Env.setfpscap, noPreset = true,
+		  desc = (Env.setfpscap or Env.setfflag) and "Libera mais de 60 FPS (setfpscap + FFlag)" or "Indisponível: precisa de executor",
+		  locked = not (Env.setfpscap or Env.setfflag), noPreset = true,
 		  choices = { 120, 144, 240, 999 }, choiceIndex = 3,
 		  fmt = function(v)
 			  return v >= 999 and T("Sem limite") or (v .. " FPS")
@@ -1721,6 +1979,60 @@ Ext.run(function()
 			  end,
 		  } },
 	}
+	-- AVANÇADO · EXECUTOR: coisas que o Roblox não deixa mudar por script comum
+	local function ffOption(id, title, desc, flags)
+		return {
+			id = id, cat = "AVANÇADO · EXECUTOR", title = title, exec = true,
+			desc = Env.setfflag and desc or "Indisponível: precisa de executor (setfflag)",
+			locked = not Env.setfflag,
+			custom = {
+				on = function()
+					return Ext.FF.set(id, flags)
+				end,
+				off = function()
+					Ext.FF.reset(id, flags)
+				end,
+			},
+		}
+	end
+	local TECH = { orig = nil }
+	table.insert(extra, {
+		id = "tech_compat", cat = "AVANÇADO · EXECUTOR", title = "Iluminação leve forçada", exec = true,
+		desc = Env.sethiddenproperty and "Troca a tecnologia de luz do jogo pela mais leve (Compatibility)"
+			or "Indisponível: precisa de executor (sethiddenproperty)",
+		locked = not Env.sethiddenproperty,
+		custom = {
+			on = function()
+				if TECH.orig == nil and Env.gethiddenproperty then
+					local ok, v = pcall(Env.gethiddenproperty, Lighting, "Technology")
+					TECH.orig = ok and v or false
+				end
+				return (pcall(Env.sethiddenproperty, Lighting, "Technology", Enum.Technology.Compatibility))
+			end,
+			off = function()
+				if TECH.orig then
+					pcall(Env.sethiddenproperty, Lighting, "Technology", TECH.orig)
+				end
+			end,
+		},
+	})
+	table.insert(extra, ffOption("ff_textures", "Texturas em baixa resolução", "Força todas as texturas na qualidade mínima",
+		{ DFFlagTextureQualityOverrideEnabled = "true", DFIntTextureQualityOverride = 0 }))
+	table.insert(extra, ffOption("ff_lod", "Menos detalhe de longe", "Objetos distantes usam a versão mais simples",
+		{ DFIntCSGLevelOfDetailSwitchingDistance = 0, DFIntCSGLevelOfDetailSwitchingDistanceL12 = 0,
+		  DFIntCSGLevelOfDetailSwitchingDistanceL23 = 0, DFIntCSGLevelOfDetailSwitchingDistanceL34 = 0 }))
+	table.insert(extra, ffOption("ff_grass", "Sem grama (forçado)", "Desliga a grama até em jogos que travam essa opção",
+		{ FIntFRMMinGrassDistance = 0, FIntFRMMaxGrassDistance = 0, FIntRenderGrassDetailStrands = 0 }))
+	table.insert(extra, ffOption("ff_shadows", "Sem sombras (forçado)", "Zera a intensidade de todas as sombras",
+		{ FIntRenderShadowIntensity = 0 }))
+	table.insert(extra, ffOption("ff_voxel", "Congelar luz de voxel", "Para de recalcular a iluminação do mapa",
+		{ DFFlagDebugPauseVoxelizer = "true" }))
+	table.insert(extra, ffOption("ff_postfx", "Sem pós-processamento (forçado)", "Desliga bloom, blur e cor no motor",
+		{ FFlagDisablePostFx = "true" }))
+	table.insert(extra, ffOption("ff_lights", "Atualizar menos as luzes", "Luzes locais atualizam bem menos vezes",
+		{ FIntRenderLocalLightUpdatesMax = 1, FIntRenderLocalLightUpdatesMin = 1, FIntRenderLocalLightFadeInMs = 0 }))
+	table.insert(extra, ffOption("ff_msaa", "Sem antisserrilhado", "Bordas um pouco serrilhadas, mais FPS",
+		{ FIntDebugForceMSAASamples = 1 }))
 	for _, opt in ipairs(extra) do
 		table.insert(OPTIONS, opt)
 	end
@@ -2563,12 +2875,21 @@ Ext.run(function()
 		{ name = "Pôr do sol", v = 17.9 },
 		{ name = "Noite", v = 0 },
 	}
+	-- céus completos (6 faces). Os IDs vêm de skyboxes públicos do Roblox.
+	local function ids(bk, dn, ft, lf, rt, up)
+		local function u(x)
+			return type(x) == "number" and ("rbxassetid://" .. x) or x
+		end
+		return { SkyboxBk = u(bk), SkyboxDn = u(dn), SkyboxFt = u(ft), SkyboxLf = u(lf), SkyboxRt = u(rt), SkyboxUp = u(up) }
+	end
 	local SKIES = {
-		{ name = "Padrão do Roblox" },
-		{ name = "Limpo", atmo = { Density = 0.22, Offset = 0, Color = rgb(199, 217, 232), Decay = rgb(106, 120, 140), Glare = 0, Haze = 0 } },
-		{ name = "Entardecer", atmo = { Density = 0.36, Offset = 0.1, Color = rgb(255, 190, 150), Decay = rgb(190, 105, 95), Glare = 0.5, Haze = 1.6 } },
-		{ name = "Rosa", atmo = { Density = 0.33, Offset = 0.05, Color = rgb(255, 192, 216), Decay = rgb(205, 120, 170), Glare = 0.25, Haze = 1.1 } },
-		{ name = "Noite azul", atmo = { Density = 0.3, Offset = 0, Color = rgb(96, 108, 150), Decay = rgb(40, 44, 78), Glare = 0, Haze = 0.6 } },
+		{ name = "Padrão do Roblox", faces = ids("rbxasset://textures/sky/sky512_bk.tex", "rbxasset://textures/sky/sky512_dn.tex",
+			"rbxasset://textures/sky/sky512_ft.tex", "rbxasset://textures/sky/sky512_lf.tex",
+			"rbxasset://textures/sky/sky512_rt.tex", "rbxasset://textures/sky/sky512_up.tex") },
+		{ name = "Pôr do sol", faces = ids(323494035, 323494368, 323494130, 323494252, 323494067, 323493360), sun = 14 },
+		{ name = "Tropical", faces = ids(169210090, 169210108, 169210121, 169210133, 169210143, 169210149) },
+		{ name = "Céu limpo", faces = ids(196263721, 196263643, 196263721, 196263721, 196263721, 196263782) },
+		{ name = "Espaço", faces = ids(159454299, 159454296, 159454293, 159454286, 159454300, 159454288), noBodies = true },
 	}
 	local SHADERS = {
 		{ name = "Suave", swatch = { C.Apricot, C.Peach },
@@ -2619,14 +2940,21 @@ Ext.run(function()
 			end
 		end
 		local style = SKIES[Ext.sky]
-		if style and style.atmo then
-			local a = Instance.new("Atmosphere")
-			for k, v in pairs(style.atmo) do
-				a[k] = v
+		if style then
+			local sky = Instance.new("Sky")
+			for k, v in pairs(style.faces) do
+				sky[k] = v
 			end
-			a:SetAttribute("SillyFx", true)
-			a.Parent = Lighting
-			SKY.atmo = a
+			if style.sun then
+				sky.SunAngularSize = style.sun
+			end
+			if style.noBodies then
+				sky.CelestialBodiesShown = false
+				sky.StarCount = 3000
+			end
+			sky:SetAttribute("SillyFx", true)
+			sky.Parent = Lighting
+			SKY.atmo = sky
 		end
 		return true
 	end
@@ -3027,6 +3355,344 @@ Ext.run(function()
 end)
 
 --------------------------------------------------------------------------
+-- REDE: FFlags de rede, aliviar o aparelho à distância e servidor
+--------------------------------------------------------------------------
+Ext.run(function()
+	local function ffNet(id, title, desc, flags)
+		return {
+			id = id, cat = "AJUSTES DE REDE · FFLAG", tab = "network", title = title, exec = true,
+			desc = Env.setfflag and desc or "Indisponível: precisa de executor (setfflag)",
+			locked = not Env.setfflag,
+			custom = {
+				on = function()
+					return Ext.FF.set(id, flags)
+				end,
+				off = function()
+					Ext.FF.reset(id, flags)
+				end,
+			},
+		}
+	end
+
+	local function myRoot()
+		local ch = LocalPlayer.Character
+		return ch and ch:FindFirstChild("HumanoidRootPart")
+	end
+	local function camPos()
+		local cam = Workspace.CurrentCamera
+		return cam and cam.CFrame.Position
+	end
+
+	-- animações só de perto: congela (velocidade 0) quem está longe e solta quando chega perto
+	local FA = { dist = 80, frozen = setmetatable({}, { __mode = "k" }), token = 0, count = 0 }
+	local function faOn()
+		FA.token += 1
+		local my = FA.token
+		task.spawn(function()
+			while G.ById and Active.far_anim and FA.token == my and not Destroyed do
+				local origin = camPos()
+				local n = 0
+				if origin then
+					for _, plr in ipairs(Players:GetPlayers()) do
+						local ch = plr ~= LocalPlayer and plr.Character
+						local root = ch and ch:FindFirstChild("HumanoidRootPart")
+						local hum = ch and ch:FindFirstChildOfClass("Humanoid")
+						local animator = hum and hum:FindFirstChildOfClass("Animator")
+						if root and animator then
+							local far = (root.Position - origin).Magnitude > FA.dist
+							if far then
+								n += 1
+							end
+							for _, t in ipairs(animator:GetPlayingAnimationTracks()) do
+								if far and FA.frozen[t] == nil then
+									FA.frozen[t] = t.Speed
+									pcall(function()
+										t:AdjustSpeed(0)
+									end)
+								elseif not far and FA.frozen[t] ~= nil then
+									local sp = FA.frozen[t]
+									FA.frozen[t] = nil
+									pcall(function()
+										t:AdjustSpeed(sp)
+									end)
+								end
+							end
+						end
+					end
+				end
+				FA.count = n
+				task.wait(0.5)
+			end
+		end)
+		return true
+	end
+	local function faOff()
+		FA.token += 1
+		for t, sp in pairs(FA.frozen) do
+			pcall(function()
+				t:AdjustSpeed(sp)
+			end)
+		end
+		table.clear(FA.frozen)
+		FA.count = 0
+	end
+
+	-- jogadores distantes somem (só para você)
+	local FC = { dist = 150, store = {}, token = 0, count = 0 }
+	local function fcHide(ch, hide)
+		for _, d in ipairs(ch:GetDescendants()) do
+			if d:IsA("BasePart") then
+				if hide then
+					if FC.store[d] == nil then
+						FC.store[d] = d.LocalTransparencyModifier
+					end
+					d.LocalTransparencyModifier = 1
+				elseif FC.store[d] ~= nil then
+					d.LocalTransparencyModifier = FC.store[d]
+					FC.store[d] = nil
+				end
+			end
+		end
+	end
+	local function fcOn()
+		FC.token += 1
+		local my = FC.token
+		task.spawn(function()
+			while Active.far_chars and FC.token == my and not Destroyed do
+				local origin = camPos()
+				local n = 0
+				if origin then
+					for _, plr in ipairs(Players:GetPlayers()) do
+						local ch = plr ~= LocalPlayer and plr.Character
+						local root = ch and ch:FindFirstChild("HumanoidRootPart")
+						if root then
+							local far = (root.Position - origin).Magnitude > FC.dist
+							if far then
+								n += 1
+							end
+							pcall(fcHide, ch, far)
+						end
+					end
+				end
+				FC.count = n
+				task.wait(0.6)
+			end
+		end)
+		return true
+	end
+	local function fcOff()
+		FC.token += 1
+		for p, v in pairs(FC.store) do
+			pcall(function()
+				p.LocalTransparencyModifier = v
+			end)
+		end
+		table.clear(FC.store)
+		FC.count = 0
+	end
+
+	-- efeitos só de perto: partículas, trilhas, feixes, fogo e fumaça longe ficam desligados
+	local FX = { dist = 120, store = {}, token = 0, count = 0 }
+	local FX_CLASSES = { "ParticleEmitter", "Trail", "Beam", "Fire", "Smoke", "Sparkles" }
+	local function fxPos(e)
+		local p = e.Parent
+		if p and p:IsA("Attachment") then
+			return p.WorldPosition
+		elseif p and p:IsA("BasePart") then
+			return p.Position
+		end
+		return nil
+	end
+	local function fxOn()
+		FX.token += 1
+		local my = FX.token
+		task.spawn(function()
+			local list, refreshAt, idx = {}, 0, 1
+			while Active.far_fx and FX.token == my and not Destroyed do
+				if os.clock() >= refreshAt then
+					list = {}
+					for _, d in ipairs(Workspace:GetDescendants()) do
+						for _, c in ipairs(FX_CLASSES) do
+							if d:IsA(c) and not d:GetAttribute("SillyFx") then
+								list[#list + 1] = d
+								break
+							end
+						end
+					end
+					refreshAt, idx = os.clock() + 10, 1
+				end
+				local origin = camPos()
+				if origin then
+					local stop = math.min(#list, idx + 400)
+					for i = idx, stop do
+						local e = list[i]
+						local pos = e.Parent and fxPos(e)
+						if pos then
+							local far = (pos - origin).Magnitude > FX.dist
+							if far and FX.store[e] == nil then
+								FX.store[e] = e.Enabled
+								FX.count += 1
+								pcall(function()
+									e.Enabled = false
+								end)
+							elseif not far and FX.store[e] ~= nil then
+								local v = FX.store[e]
+								FX.store[e] = nil
+								FX.count -= 1
+								pcall(function()
+									e.Enabled = v
+								end)
+							end
+						end
+					end
+					idx = stop + 1
+					if idx > #list then
+						idx = 1
+					end
+				end
+				task.wait(0.2)
+			end
+		end)
+		return true
+	end
+	local function fxOff()
+		FX.token += 1
+		for e, v in pairs(FX.store) do
+			pcall(function()
+				e.Enabled = v
+			end)
+		end
+		table.clear(FX.store)
+		FX.count = 0
+	end
+
+	-- trocar de servidor sozinho quando o ping ficar alto
+	local AS = { limit = 200, token = 0, highSince = nil }
+	local function asOn()
+		AS.token += 1
+		local my = AS.token
+		task.spawn(function()
+			while Active.auto_server and AS.token == my and not Destroyed do
+				task.wait(5)
+				local p = Ext.pings
+				local avg = 0
+				for _, v in ipairs(p) do
+					avg += v
+				end
+				avg = #p > 0 and avg / #p or 0
+				if #p >= 8 and avg > AS.limit then
+					AS.highSince = AS.highSince or os.clock()
+					if os.clock() - AS.highSince > 30 and Ext.searchServers then
+						AS.highSince = nil
+						Hooks.toast(T("Ping alto há 30 s · procurando servidor melhor"), C.Warn)
+						Ext.searchServers("ping")
+						task.wait(60)
+					end
+				else
+					AS.highSince = nil
+				end
+			end
+		end)
+		return true
+	end
+	local function asOff()
+		AS.token += 1
+		AS.highSince = nil
+	end
+
+	-- alerta de lag
+	local LA = { token = 0, last = 0 }
+	local function laOn()
+		LA.token += 1
+		local my = LA.token
+		task.spawn(function()
+			local wasLag = false
+			while Active.lag_alert and LA.token == my and not Destroyed do
+				task.wait(2)
+				local label, color = Ext.stability()
+				local lag = color == C.Warn
+				if lag and not wasLag and os.clock() - LA.last > 20 then
+					LA.last = os.clock()
+					Hooks.toast(T("Conexão com lag agora") .. " · " .. label, C.Warn)
+				end
+				wasLag = lag
+			end
+		end)
+		return true
+	end
+	local function laOff()
+		LA.token += 1
+	end
+
+	local function distFmt(v)
+		return v .. " studs"
+	end
+	G.NETWORK_OPTIONS = {
+		ffNet("net_route", "Otimizar rede", "Liga as otimizações de rede internas do Roblox (experimental)",
+			{ FFlagOptimizeNetwork = "true", FFlagOptimizeNetworkRouting = "true", FFlagOptimizeNetworkTransport = "true", FFlagOptimizeServerTickRate = "true" }),
+		ffNet("net_mtu", "Pacotes menores", "Pode reduzir travadas em Wi-Fi ou 4G instável (experimental)",
+			{ DFIntConnectionMTUSize = 900 }),
+		ffNet("net_resend", "Reenvio rápido de pacotes", "Recupera mais rápido quando um pacote se perde (experimental)",
+			{ FIntRakNetResendBufferArrayLength = 128, DFIntRakNetLoopMs = 1 }),
+		ffNet("net_ping", "Ping medido mais vezes", "O jogo reage mais rápido a mudanças de conexão (experimental)",
+			{ DFIntRaknetBandwidthPingSendEveryXSeconds = 1, DFIntOptimizePingThreshold = 50 }),
+		ffNet("net_update", "Jogadores atualizados mais rápido", "Movimento dos outros mais fluido (experimental)",
+			{ DFIntPlayerNetworkUpdateRate = 60, DFIntPlayerNetworkUpdateQueueSize = 20 }),
+
+		{ id = "far_anim", cat = "ALIVIAR O APARELHO", tab = "network", title = "Animações só de perto",
+		  desc = "Quem está longe fica parado até chegar perto",
+		  choices = { 40, 80, 150 }, choiceIndex = 2, fmt = distFmt,
+		  onChoice = function(v)
+			  FA.dist = v
+		  end,
+		  statusText = function()
+			  return T("Ativo") .. " · " .. FA.count .. " " .. T(FA.count == 1 and "jogador parado" or "jogadores parados")
+		  end,
+		  custom = { on = faOn, off = faOff } },
+		{ id = "far_chars", cat = "ALIVIAR O APARELHO", tab = "network", title = "Esconder jogadores distantes",
+		  desc = "Personagens longe somem (só para você)",
+		  choices = { 80, 150, 300 }, choiceIndex = 2, fmt = distFmt,
+		  onChoice = function(v)
+			  FC.dist = v
+		  end,
+		  statusText = function()
+			  return T("Ativo") .. " · " .. FC.count .. " " .. T(FC.count == 1 and "jogador escondido" or "jogadores escondidos")
+		  end,
+		  custom = { on = fcOn, off = fcOff } },
+		{ id = "far_fx", cat = "ALIVIAR O APARELHO", tab = "network", title = "Efeitos só de perto",
+		  desc = "Partículas, fogo e fumaça longe ficam desligados",
+		  choices = { 60, 120, 250 }, choiceIndex = 2, fmt = distFmt,
+		  onChoice = function(v)
+			  FX.dist = v
+		  end,
+		  statusText = function()
+			  return T("Ativo") .. " · " .. fmtNum(FX.count) .. " " .. T("efeitos desligados")
+		  end,
+		  custom = { on = fxOn, off = fxOff } },
+
+		{ id = "auto_server", cat = "SERVIDOR", tab = "network", title = "Trocar de servidor se o ping passar de",
+		  desc = Env.studio and "Indisponível no Studio" or "Depois de 30 s com ping alto, entra num servidor melhor",
+		  choices = { 150, 200, 300 }, choiceIndex = 2,
+		  fmt = function(v)
+			  return v .. " ms"
+		  end,
+		  onChoice = function(v)
+			  AS.limit = v
+		  end,
+		  statusText = function()
+			  return T("Ativo · vigiando o ping")
+		  end,
+		  custom = { on = asOn, off = asOff } },
+		{ id = "lag_alert", cat = "SERVIDOR", tab = "network", title = "Alerta de lag",
+		  desc = "Avisa quando a conexão começar a oscilar",
+		  custom = { on = laOn, off = laOff } },
+	}
+	for _, opt in ipairs(G.NETWORK_OPTIONS) do
+		register(opt)
+	end
+end)
+
+--------------------------------------------------------------------------
 -- APLICAR / RESTAURAR
 --------------------------------------------------------------------------
 -- verify = lê de volta depois de escrever (alvos únicos: Lighting, Terrain, qualidade)
@@ -3041,11 +3707,18 @@ local function applyProps(id, inst, props, verify)
 	for prop, value in pairs(props) do
 		if rec[prop] == nil then
 			local ok, cur = pcall(getProp, inst, prop)
+			if not ok and Env.gethiddenproperty then
+				ok, cur = pcall(Env.gethiddenproperty, inst, prop)
+			end
 			if ok then
 				rec[prop] = cur
 			end
 		end
 		local ok = pcall(setProp, inst, prop, value)
+		if not ok and Env.sethiddenproperty then
+			-- executor: força propriedades que o Roblox não deixa mudar por script
+			ok = pcall(Env.sethiddenproperty, inst, prop, value)
+		end
 		if ok and verify then
 			local okGet, now = pcall(getProp, inst, prop)
 			ok = okGet and same(now, value)
@@ -3148,7 +3821,9 @@ local function restore(opt, sync)
 				break
 			end
 			for prop, orig in pairs(item[2]) do
-				pcall(setProp, item[1], prop, orig)
+				if not pcall(setProp, item[1], prop, orig) and Env.sethiddenproperty then
+					pcall(Env.sethiddenproperty, item[1], prop, orig)
+				end
 			end
 			store[item[1]] = nil
 			if not sync and i % 800 == 0 then
@@ -3354,10 +4029,11 @@ G.PRESETS = {
 	  desc = "Mantém o visual bonito. Tira neblina, pós-processamento, água animada e sombras globais." },
 	{ id = "medium", name = "Medium", level = 2, quality = 3, list = mediumList, accent = C.Peach,
 	  desc = "Equilíbrio entre visual e FPS. Soma partículas, fogo, grama e sombra dos objetos." },
-	{ id = "extreme", name = "Extreme", level = 3, quality = 1, list = extremeList, accent = C.Salmon,
+	{ id = "high", name = "High", level = 3, quality = 1, list = extremeList, accent = C.Salmon,
 	  desc = "FPS alto. Remove luzes, atmosfera e céu, deixa materiais lisos e malhas simples." },
-	{ id = "potato", name = "Potato", level = 4, quality = 1, list = potatoList, accent = C.Pink,
-	  desc = "Tudo no mínimo. Visual bem simples, feito para aparelho fraco." },
+	{ id = "extreme", name = "Extreme", level = 4, quality = 1, list = potatoList, accent = C.Pink,
+	  desc = Env.setfflag and "Tudo no mínimo + ajustes de executor (FFlags e iluminação forçada). Máximo de FPS."
+		  or "Tudo no mínimo. No executor também força FFlags e iluminação leve." },
 }
 end
 
@@ -3400,7 +4076,7 @@ local function applyPreset(p)
 	end
 	local map = {}
 	for _, opt in ipairs(OPTIONS) do
-		map[opt.id] = inList[opt.id] == true
+		map[opt.id] = inList[opt.id] == true and not opt.locked
 	end
 	State.preset = p
 	setOptions(map)
@@ -3522,6 +4198,7 @@ local function Switch(parent, accent, initial)
 	function api.Toggle()
 		api.Set(not api.value)
 	end
+	api.frame = trackF
 	function api.SetLocked(locked)
 		trackF.BackgroundTransparency = locked and 0.5 or 0
 		knob.BackgroundTransparency = locked and 0.5 or 0
@@ -3534,20 +4211,21 @@ local function Stepper(parent, cfg, accent, rightOffset)
 	local f = make("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -(rightOffset or 16), 0.5, 0),
-		Size = UDim2.fromOffset(cfg.width or 112, 30),
+		Size = UDim2.fromOffset(cfg.width or 140, 34),
 		BackgroundColor3 = C.Surface2,
 		BorderSizePixel = 0,
 		Active = true,
 		ClipsDescendants = true,
 		Parent = parent,
-	}, { corner(10) })
+	}, { corner(12) })
 	local value = text({
 		Text = "",
 		Font = F.Bold,
 		TextSize = 12,
 		TextXAlignment = Enum.TextXAlignment.Center,
-		Position = UDim2.fromOffset(26, 0),
-		Size = UDim2.new(1, -52, 1, 0),
+		Position = UDim2.fromOffset(36, 0),
+		Size = UDim2.new(1, -72, 1, 0),
+		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = f,
 	})
 	local function arrow(glyph, xScale, anchorX)
@@ -3560,7 +4238,7 @@ local function Stepper(parent, cfg, accent, rightOffset)
 			AutoButtonColor = false,
 			AnchorPoint = Vector2.new(anchorX, 0),
 			Position = UDim2.new(xScale, 0, 0, -1),
-			Size = UDim2.new(0, 28, 1, 0),
+			Size = UDim2.new(0, 36, 1, 0),
 			Parent = f,
 		})
 	end
@@ -3572,9 +4250,9 @@ local function Stepper(parent, cfg, accent, rightOffset)
 		minus.TextColor3 = api.index > 1 and accent or C.Off
 		plus.TextColor3 = api.index < #cfg.choices and accent or C.Off
 		if dir then
-			value.Position = UDim2.fromOffset(26 + dir * 10, 0)
+			value.Position = UDim2.fromOffset(36 + dir * 10, 0)
 			value.TextTransparency = 1
-			tween(value, 0.28, { Position = UDim2.fromOffset(26, 0), TextTransparency = 0 })
+			tween(value, 0.28, { Position = UDim2.fromOffset(36, 0), TextTransparency = 0 })
 		end
 	end
 	function api.Set(i, silent)
@@ -3748,7 +4426,7 @@ end
 local function Row(parent, order, cfg)
 	local accent = cfg.accent
 	local hasStatus = cfg.status == true
-	local h = hasStatus and 78 or 64
+	local h = cfg.tall and 108 or (hasStatus and 78 or 64)
 	local row = make("Frame", {
 		LayoutOrder = order,
 		Size = UDim2.new(1, 0, 0, h),
@@ -3786,19 +4464,22 @@ local function Row(parent, order, cfg)
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = row,
 	})
+	local tallExtra = cfg.tall and 16 or 0
 	local desc = text({
 		Text = cfg.desc or "",
 		TextSize = 12,
 		TextColor3 = C.Dim,
 		Position = UDim2.fromOffset(18, y0 + 20),
-		Size = UDim2.new(1, -(18 + right), 0, 16),
-		TextTruncate = Enum.TextTruncate.AtEnd,
+		Size = UDim2.new(1, -(18 + (cfg.tall and 176 or right)), 0, cfg.tall and 32 or 16),
+		TextWrapped = cfg.tall == true,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextTruncate = cfg.tall and Enum.TextTruncate.None or Enum.TextTruncate.AtEnd,
 		Parent = row,
 	})
 	local api = { frame = row, hit = hit, title = title, desc = desc, accent = accent }
 	if hasStatus then
 		local dot = make("Frame", {
-			Position = UDim2.fromOffset(18, y0 + 45),
+			Position = UDim2.fromOffset(18, y0 + 45 + tallExtra),
 			Size = UDim2.fromOffset(6, 6),
 			BackgroundColor3 = C.Dim,
 			BorderSizePixel = 0,
@@ -3809,8 +4490,8 @@ local function Row(parent, order, cfg)
 			Font = F.Bold,
 			TextSize = 11,
 			TextColor3 = C.Dim,
-			Position = UDim2.fromOffset(30, y0 + 40),
-			Size = UDim2.new(1, -(30 + right), 0, 16),
+			Position = UDim2.fromOffset(30, y0 + 40 + tallExtra),
+			Size = UDim2.new(1, -(30 + (cfg.statusRight or right)), 0, 16),
 			TextTruncate = Enum.TextTruncate.AtEnd,
 			Parent = row,
 		})
@@ -3860,7 +4541,11 @@ end
 
 -- linha com switch (a linha inteira é clicável)
 local function SwitchRow(parent, order, cfg)
-	cfg.rightWidth = cfg.rightWidth or (cfg.stepper and 200 or 80)
+	cfg.rightWidth = cfg.rightWidth or 80
+	if cfg.stepper then
+		cfg.tall = true
+		cfg.statusRight = 176
+	end
 	local r = Row(parent, order, cfg)
 	local sw = Switch(r.frame, cfg.accent, cfg.initial == true)
 	r.switch = sw
@@ -3887,7 +4572,20 @@ local function SwitchRow(parent, order, cfg)
 		sw.Toggle()
 	end)
 	if cfg.stepper then
-		r.stepper = Stepper(r.frame, cfg.stepper, cfg.accent, 76)
+		-- switch em cima, seletor embaixo, com margem que absorve toques errados
+		sw.frame.AnchorPoint = Vector2.new(1, 0)
+		sw.frame.Position = UDim2.new(1, -16, 0, 16)
+		make("Frame", {
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -6, 1, -4),
+			Size = UDim2.fromOffset(164, 52),
+			BackgroundTransparency = 1,
+			Active = true,
+			Parent = r.frame,
+		})
+		r.stepper = Stepper(r.frame, cfg.stepper, cfg.accent, 16)
+		r.stepper.frame.AnchorPoint = Vector2.new(1, 1)
+		r.stepper.frame.Position = UDim2.new(1, -16, 1, -14)
 	end
 	function r.Set(v)
 		if sw.value ~= v then
@@ -3992,13 +4690,14 @@ local function toast(msg, color)
 		end
 	end)
 end
+Hooks.toast = toast
 
 --------------------------------------------------------------------------
 -- JANELA
 --------------------------------------------------------------------------
 G.WIN_W, G.WIN_H = 790, 520
 G.SIDE_W, G.HEAD_H = 206, 96
-G.TAB_H, G.TAB_GAP = 54, 6
+G.TAB_H, G.TAB_GAP = 48, 4
 G.SUB_Y = 58
 
 -- cada aba tem a própria cor de destaque (sempre pastel)
@@ -4011,6 +4710,8 @@ local TABS = {
 	  title = "Ajustes individuais", sub = "Ligado = otimização aplicada · Desligado = visual original" },
 	{ id = "farm", name = "Farm", kicker = "MODO FARM", accent = C.Peach,
 	  title = "Deixe rodando leve", sub = "Fique no jogo gastando o mínimo de bateria e calor" },
+	{ id = "network", name = "Rede", kicker = "REDE", accent = rgb(150, 205, 230),
+	  title = "Conexão estável", sub = "Ping, oscilação, ajustes de rede e o que aliviar no aparelho" },
 	{ id = "server", name = "Servidores", kicker = "SERVER", accent = C.Butter,
 	  title = "Servidor", sub = "Reentre ou ache um servidor melhor" },
 	{ id = "friends", name = "Amigos", kicker = "AMIGOS", accent = C.Butter,
@@ -4279,11 +4980,13 @@ end
 -- grupos do menu lateral; cada grupo tem sub-abas horizontais
 local GROUPS = {
 	{ id = "home", name = "Home", icon = "home", accent = C.Coral, subs = { "home" } },
-	{ id = "optimize", name = "Otimização", icon = "bolt", accent = C.Salmon, subs = { "presets", "tweaks", "farm" } },
-	{ id = "custom", name = "Personalizar", icon = "palette", accent = C.Pink, subs = { "visual", "audio", "hud" } },
+	{ id = "optimize", name = "Otimização", icon = "gauge", accent = C.Salmon, subs = { "presets", "tweaks", "farm" } },
+	{ id = "network", name = "Rede", icon = "server", accent = rgb(150, 205, 230), subs = { "network" } },
+	{ id = "visual", name = "Visual", icon = "eye", accent = C.Pink, subs = { "visual", "hud" } },
+	{ id = "audio", name = "Áudio", icon = "wave", accent = C.Rose, subs = { "audio" } },
 	{ id = "server", name = "Servidor", icon = "server", accent = C.Butter, subs = { "server", "friends" } },
-	{ id = "protect", name = "Proteção", icon = "shield", accent = C.Terra, subs = { "protect" } },
-	{ id = "settings", name = "Configurações", icon = "gear", accent = C.Apricot, subs = { "config", "profiles", "fab" } },
+	{ id = "protect", name = "Proteção", icon = "lock", accent = C.Terra, subs = { "protect" } },
+	{ id = "settings", name = "Configurações", icon = "sliders", accent = C.Apricot, subs = { "config", "profiles", "fab" } },
 }
 G.groupOf, G.subPos, G.groupSub, G.pageY, G.SubBars, G.MainUI = {}, {}, {}, {}, {}, {}
 for gi, grp in ipairs(GROUPS) do
@@ -4295,60 +4998,129 @@ for gi, grp in ipairs(GROUPS) do
 end
 G.TabHolder.CanvasSize = UDim2.fromOffset(0, #GROUPS * (G.TAB_H + G.TAB_GAP))
 
--- ícones desenhados com formas (nítidos em qualquer tela)
-function Ext.drawIcon(parent, kind)
+-- ícones desenhados com formas cheias e arredondadas (nítidos, sem serrilhado)
+-- traço consistente, cantos redondos e o mínimo de diagonal
+-- ícones desenhados (PNG) de cada grupo e sub-aba; GLYPH fica como reserva feita de formas
+local PIC = {
+	home = "home", optimize = "zap", network = "wifi", visual = "palette", audio = "speaker", server = "server",
+	protect = "shield", settings = "gear", presets = "layers", tweaks = "sliders", farm = "moon", hud = "layout",
+	friends = "users", config = "toggle", profiles = "bookmark", fab = "pointer",
+}
+Ext.PIC = PIC
+local GLYPH = {
+	home = "home", presets = "spark", tweaks = "sliders", farm = "battery",
+	visual = "eye", hud = "panel", audio = "wave", server = "server",
+	friends = "people", protect = "lock", config = "gear", profiles = "card", fab = "target",
+}
+function Ext.drawIcon(parent, kind, size)
+	size = size or 22
+	local u = size / 22
 	local holder = make("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(20, 20),
+		Size = UDim2.fromOffset(size, size),
 		BackgroundTransparency = 1,
 		Parent = parent,
 	})
 	local fg, holes = {}, {}
-	local function part(x, y, w, h, r, rot, hole)
+	local function part(x, y, w, h, r, rot, hole, top)
+		local rad = r
+		if type(r) == "number" then
+			rad = r * u
+		end
 		local f = make("Frame", {
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, x, 0.5, y),
-			Size = UDim2.fromOffset(w, h),
+			Position = UDim2.new(0.5, x * u, 0.5, y * u),
+			Size = UDim2.fromOffset(w * u, h * u),
 			Rotation = rot or 0,
 			BorderSizePixel = 0,
+			ZIndex = top and 4 or (hole and 3 or 2),
 			Parent = holder,
-		}, { corner(r or 2) })
+		}, { corner(rad or 2) })
 		table.insert(hole and holes or fg, f)
 		return f
 	end
-	if kind == "home" then
-		part(0, -3, 12, 12, 2, 45)
-		part(0, 4, 15, 10, 2)
-		part(0, 6, 4, 6, 1, 0, true)
-	elseif kind == "bolt" then
-		part(2, -5, 5, 12, 1, 22)
-		part(0, 0, 12, 4, 1)
-		part(-2, 5, 5, 12, 1, 22)
-	elseif kind == "palette" then
-		part(0, 0, 19, 19, "full")
-		part(-4, -3, 4, 4, "full", 0, true)
-		part(1, -5, 4, 4, "full", 0, true)
-		part(5, -1, 4, 4, "full", 0, true)
-		part(2, 5, 6, 6, "full", 0, true)
-	elseif kind == "server" then
-		part(0, -5, 18, 7, 2)
-		part(0, 5, 18, 7, 2)
-		part(5, -5, 3, 3, "full", 0, true)
-		part(5, 5, 3, 3, "full", 0, true)
-		part(-3, -5, 7, 2, 1, 0, true)
-		part(-3, 5, 7, 2, 1, 0, true)
-	elseif kind == "shield" then
-		part(0, -3, 16, 12, 4)
-		part(0, 3, 12, 12, 2, 45)
-		part(-2, 1, 3, 6, 1, -45, true)
-		part(2, -1, 3, 10, 1, 40, true)
-	else
-		for k = 0, 2 do
-			part(0, 0, 5, 20, 1, k * 60)
+	if kind == "home" then -- painel / resumo
+		for _, p in ipairs({ { -5, -5 }, { 5, -5 }, { -5, 5 }, { 5, 5 } }) do
+			part(p[1], p[2], 8, 8, 2.5)
 		end
+	elseif kind == "spark" then -- presets (um toque)
+		part(0, 0, 4.5, 20, "full")
+		part(0, 0, 20, 4.5, "full")
+		part(7, -7, 2.5, 8, "full", 45)
+		part(-7, 7, 2.5, 8, "full", 45)
+	elseif kind == "sliders" then -- ajustes / configurações
+		part(0, -5, 20, 3.5, "full")
+		part(0, 5, 20, 3.5, "full")
+		part(-4, -5, 8, 8, "full")
+		part(-4, -5, 3.5, 3.5, "full", 0, true)
+		part(4, 5, 8, 8, "full")
+		part(4, 5, 3.5, 3.5, "full", 0, true)
+	elseif kind == "battery" then -- farm / economia
+		part(-1, 0, 18, 12, 3.5)
+		part(-1, 0, 13, 7, 2, 0, true)
+		part(9, 0, 3, 5, 1.2)
+		part(-3.5, 0, 5, 4.5, 1.2)
+	elseif kind == "eye" then -- visual
+		part(0, 0, 21, 13, "full")
+		part(0, 0, 10.5, 10.5, "full", 0, true)
+		part(0, 0, 5, 5, "full", 0, false, true)
+	elseif kind == "panel" then -- hud
+		part(0, 0, 20, 14, 3.5)
+		part(0, 0, 14.5, 8.5, 2, 0, true)
+		part(-3.5, -1, 5, 2, 1)
+		part(1.5, -1, 3, 2, 1)
+		part(-1.5, 2.5, 9, 2, 1)
+	elseif kind == "wave" then -- áudio (equalizador)
+		local hs = { 9, 15, 20, 12, 7 }
+		for k, h in ipairs(hs) do
+			part(-8.5 + (k - 1) * 4.3, 0, 3, h, "full")
+		end
+	elseif kind == "server" then -- servidor
+		part(0, -5, 19, 8, 2.5)
+		part(0, 5, 19, 8, 2.5)
+		part(6, -5, 3, 3, "full", 0, true)
+		part(6, 5, 3, 3, "full", 0, true)
+	elseif kind == "people" then -- amigos
+		part(5, -4, 8, 8, "full")
+		part(4.5, 6, 11, 8, "full")
+		part(-5, -4.5, 9, 9, "full")
+		part(-5, 6.5, 13, 9, "full")
+		part(-5, -4.5, 9, 9, "full", 0, true)
+		part(-5, 2, 13, 9, "full", 0, true)
+		part(-5, -4, 7.5, 7.5, "full")
+		part(-5, 5.5, 10, 7, "full")
+	elseif kind == "lock" then -- proteção
+		part(0, -3.5, 12, 12, "full")
+		part(0, -3.5, 6, 6, "full", 0, true)
+		part(0, -1, 12, 6, 0, 0, true)
+		part(0, 4, 16, 13, 4)
+		part(0, 3, 3, 3.5, "full", 0, true)
+		part(0, 5, 2.5, 4, 1, 0, true)
+	elseif kind == "gear" then -- configurações (engrenagem)
+		for k = 0, 7 do
+			local a = k * math.pi / 4
+			part(math.cos(a) * 8.5, math.sin(a) * 8.5, 5.5, 5.5, "full")
+		end
+		part(0, 0, 15, 15, "full")
+		part(0, 0, 5.5, 5.5, "full", 0, true)
+	elseif kind == "card" then -- perfis
+		part(0, 0, 20, 14, 3.5)
+		part(0, 0, 14.5, 8.5, 2, 0, true)
+		part(-5, 0, 5, 5, "full")
+		part(2, -2, 7, 2, 1)
+		part(1, 2, 5, 2, 1)
+	elseif kind == "target" then -- botão flutuante
+		part(0, 0, 18, 18, "full")
+		part(0, 0, 11, 11, "full", 0, true)
+		part(0, 0, 5, 5, "full", 0, false, true)
+	elseif kind == "gauge" then -- otimização (medidor)
+		part(0, 0, 19, 19, "full")
+		part(0, 0, 11.5, 11.5, "full", 0, true)
+		part(2.5, -2.5, 3, 10, "full", 40, false, true)
+		part(0, 0, 5.5, 5.5, "full", 0, false, true)
+	else
 		part(0, 0, 14, 14, "full")
-		part(0, 0, 6, 6, "full", 0, true)
 	end
 	return holder, fg, holes
 end
@@ -4368,25 +5140,30 @@ for gi, grp in ipairs(GROUPS) do
 	local tile = make("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 10, 0.5, 0),
-		Size = UDim2.fromOffset(36, 36),
+		Size = UDim2.fromOffset(40, 40),
 		BackgroundColor3 = C.Surface2,
 		BorderSizePixel = 0,
 		Parent = b,
-	}, { corner(12) })
+	}, { corner(13) })
 	local tileScale = make("UIScale", { Parent = tile })
-	local _, fg, holes = Ext.drawIcon(tile, grp.icon)
-	for _, f in ipairs(fg) do
-		f.BackgroundColor3 = grp.accent
-	end
-	for _, f in ipairs(holes) do
-		f.BackgroundColor3 = C.Surface2
+	local img = Ext.icon(tile, PIC[grp.id], 22, grp.accent)
+	local fg, holes = {}, {}
+	if not img then
+		local _
+		_, fg, holes = Ext.drawIcon(tile, grp.icon, 24)
+		for _, f in ipairs(fg) do
+			f.BackgroundColor3 = grp.accent
+		end
+		for _, f in ipairs(holes) do
+			f.BackgroundColor3 = C.Surface2
+		end
 	end
 	local label = text({
 		Text = grp.name,
 		Font = F.Bold,
 		TextSize = 15,
 		TextColor3 = C.Sub,
-		Position = UDim2.fromOffset(58, 0),
+		Position = UDim2.fromOffset(62, 0),
 		Size = UDim2.new(1, -62, 1, 0),
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		Parent = b,
@@ -4419,7 +5196,7 @@ for gi, grp in ipairs(GROUPS) do
 	b.Activated:Connect(function()
 		selectTab(G.groupSub[gi], false)
 	end)
-	G.MainUI[gi] = { btn = b, tile = tile, tileScale = tileScale, fg = fg, holes = holes, label = label, badge = badge, badgeText = badgeText }
+	G.MainUI[gi] = { btn = b, tile = tile, tileScale = tileScale, img = img, fg = fg, holes = holes, label = label, badge = badge, badgeText = badgeText }
 end
 
 -- páginas (uma por sub-aba)
@@ -4471,24 +5248,101 @@ for i, tab in ipairs(TABS) do
 	G.Pages[i], G.Bodies[i] = page, body
 end
 
--- barra de sub-abas (horizontal) de cada grupo
+-- barra de sub-abas (horizontal) com ícone + nome e pílula deslizante
+function Ext.subBar(cfg)
+	local accent = cfg.accent
+	local n = #cfg.items
+	local itemW = 132
+	local f = make("Frame", {
+		Position = UDim2.fromOffset(G.SIDE_W + 20, 14),
+		Size = UDim2.fromOffset(n * itemW, 40),
+		BackgroundColor3 = C.Surface,
+		BorderSizePixel = 0,
+		Visible = false,
+		Parent = Window,
+	}, { corner(12), stroke(C.Stroke, 1, 0) })
+	local pill = make("Frame", {
+		Size = UDim2.new(1 / n, -6, 1, -6),
+		Position = UDim2.new(0, 3, 0, 3),
+		BackgroundColor3 = C.Surface2:Lerp(accent, 0.14),
+		BorderSizePixel = 0,
+		Parent = f,
+	}, { corner(9) })
+	local items = {}
+	local api = { frame = f, index = 1 }
+	for i, it in ipairs(cfg.items) do
+		local b = make("TextButton", {
+			Text = "",
+			AutoButtonColor = false,
+			BackgroundTransparency = 1,
+			Position = UDim2.fromScale((i - 1) / n, 0),
+			Size = UDim2.fromScale(1 / n, 1),
+			Parent = f,
+		})
+		local iconHolder = make("Frame", {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 16, 0.5, 0),
+			Size = UDim2.fromOffset(18, 18),
+			BackgroundTransparency = 1,
+			Parent = b,
+		})
+		local ifg, iholes = {}, {}
+		local iimg = Ext.icon(iconHolder, it.pic, 18, C.Dim)
+		if not iimg then
+			local _
+			_, ifg, iholes = Ext.drawIcon(iconHolder, it.glyph, 18)
+		end
+		local label = text({
+			Text = it.name,
+			Font = F.Bold,
+			TextSize = 13,
+			TextColor3 = C.Dim,
+			Position = UDim2.fromOffset(40, 0),
+			Size = UDim2.new(1, -46, 1, 0),
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = b,
+		})
+		items[i] = { fg = ifg, holes = iholes, img = iimg, label = label }
+		b.Activated:Connect(function()
+			if cfg.onChange then
+				cfg.onChange(i)
+			end
+		end)
+	end
+	function api.Set(i, silent)
+		api.index = i
+		tween(pill, silent and 0 or 0.35, { Position = UDim2.new((i - 1) / n, 3, 0, 3) }, EASE.Quint)
+		for k, it in ipairs(items) do
+			local sel = k == i
+			tween(it.label, silent and 0 or 0.2, { TextColor3 = sel and accent or C.Dim })
+			if it.img then
+				tween(it.img, silent and 0 or 0.2, { ImageColor3 = sel and accent or C.Dim })
+			end
+			for _, p in ipairs(it.fg) do
+				tween(p, silent and 0 or 0.2, { BackgroundColor3 = sel and accent or C.Dim })
+			end
+			for _, p in ipairs(it.holes) do
+				p.BackgroundColor3 = sel and C.Surface2:Lerp(accent, 0.14) or C.Surface
+			end
+		end
+	end
+	api.Set(1, true)
+	return api
+end
+
 for gi, grp in ipairs(GROUPS) do
 	if #grp.subs > 1 then
-		local names = {}
+		local sub = {}
 		for _, id in ipairs(grp.subs) do
-			names[#names + 1] = TABS[G.TI[id]].name
+			sub[#sub + 1] = { id = id, name = TABS[G.TI[id]].name, glyph = GLYPH[id] or "home", pic = PIC[id] }
 		end
-		local seg = Segmented(Window, {
-			items = names,
+		G.SubBars[gi] = Ext.subBar({
+			items = sub,
 			accent = grp.accent,
-			size = UDim2.fromOffset(#names * 116, 38),
-			position = UDim2.fromOffset(G.SIDE_W + 20, 16),
 			onChange = function(k)
 				selectTab(G.TI[grp.subs[k]], false)
 			end,
 		})
-		seg.frame.Visible = false
-		G.SubBars[gi] = seg
 	end
 end
 
@@ -4587,6 +5441,9 @@ selectTab = function(i, instant)
 		local acc = GROUPS[gi].accent
 		tween(ui.label, d * 0.6, { TextColor3 = sel and C.Text or C.Sub })
 		tween(ui.tile, d, { BackgroundColor3 = sel and acc or C.Surface2 })
+		if ui.img then
+			tween(ui.img, d, { ImageColor3 = sel and C.Ink or acc })
+		end
 		for _, f in ipairs(ui.fg) do
 			tween(f, d, { BackgroundColor3 = sel and C.Ink or acc })
 		end
@@ -6104,6 +6961,10 @@ Ext.run(function()
 		if pr > 0 then
 			out[#out + 1] = { pr .. " " .. T(pr == 1 and "proteção" or "proteções"), C.Terra }
 		end
+		local nw = countActive(G.NETWORK_OPTIONS)
+		if nw > 0 then
+			out[#out + 1] = { nw .. " " .. T(nw == 1 and "ajuste de rede" or "ajustes de rede"), TABS[G.TI.network].accent }
+		end
 		if Hud.Visible then
 			out[#out + 1] = { T("HUD na tela"), C.Blush }
 		end
@@ -6332,6 +7193,102 @@ Ext.run(function()
 end)
 
 --------------------------------------------------------------------------
+-- ABA · REDE
+--------------------------------------------------------------------------
+Ext.run(function()
+	local tab, body = TABS[G.TI.network], G.Bodies[G.TI.network]
+	local A = tab.accent
+	local order = 0
+	local function nextOrder()
+		order += 1
+		return order
+	end
+
+	-- cartão ao vivo: ping grande, oscilação, dados e gráfico
+	local live = Ext.card(body, nextOrder(), 150)
+	live.BackgroundColor3 = C.Surface:Lerp(A, 0.05)
+	text({ Text = "AO VIVO", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(18, 16), Size = UDim2.fromOffset(200, 14), Parent = live })
+	local pingRow = make("Frame", { Position = UDim2.fromOffset(16, 30), Size = UDim2.new(0.5, -16, 0, 46), BackgroundTransparency = 1, Parent = live },
+		{ list(Enum.FillDirection.Horizontal, 6, Enum.HorizontalAlignment.Left, Enum.VerticalAlignment.Bottom) })
+	local pingBig = text({ LayoutOrder = 1, Text = "—", Font = F.Heavy, TextSize = 40, Size = UDim2.fromOffset(0, 46), AutomaticSize = Enum.AutomaticSize.X, Parent = pingRow })
+	text({ LayoutOrder = 2, Text = "ms", Font = F.Bold, TextSize = 14, TextColor3 = C.Sub, Size = UDim2.fromOffset(30, 26), Parent = pingRow })
+	local stabL = text({ Text = "", Font = F.Bold, TextSize = 13, Position = UDim2.fromOffset(18, 80), Size = UDim2.new(0.5, -18, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = live })
+	local dataL = text({ Text = "", TextSize = 12, TextColor3 = C.Sub, Position = UDim2.fromOffset(18, 100), Size = UDim2.new(0.5, -18, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = live })
+	local avgL = text({ Text = "", TextSize = 11, TextColor3 = C.Dim, Position = UDim2.fromOffset(18, 120), Size = UDim2.new(0.5, -18, 0, 14), TextTruncate = Enum.TextTruncate.AtEnd, Parent = live })
+	local graph = make("Frame", {
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -18, 1, -18),
+		Size = UDim2.new(0.46, 0, 0, 96),
+		BackgroundTransparency = 1,
+		Parent = live,
+	}, { list(Enum.FillDirection.Horizontal, 2, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Bottom) })
+	local BARS = 24
+	local bars = {}
+	for i = 1, BARS do
+		bars[i] = make("Frame", { LayoutOrder = i, Size = UDim2.new(1 / BARS, -2, 0.05, 0), BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = graph }, { corner(2) })
+	end
+
+	local act = Row(body, nextOrder(), { title = "Achar servidor com ping menor", desc = "Busca na lista do Roblox e entra no mais rápido", accent = A, rightWidth = 140, pressable = false })
+	Button(act.frame, { text = "Procurar", style = "filled", accent = A, size = UDim2.fromOffset(110, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
+		if Ext.searchServers then
+			Ext.searchServers("ping")
+		end
+	end)
+
+	local lastCat
+	for _, opt in ipairs(G.NETWORK_OPTIONS) do
+		if opt.cat ~= lastCat then
+			lastCat = opt.cat
+			Section(body, nextOrder(), opt.cat, A)
+		end
+		optionRow(body, nextOrder(), opt, A, function(v)
+			setOptions({ [opt.id] = v })
+		end)
+	end
+
+	text({
+		LayoutOrder = nextOrder(),
+		Text = "Nenhum script diminui a distância até o servidor. Os ajustes de rede (FFlag) são experimentais: ajudam em conexões instáveis, mas o efeito varia por jogo e aparelho.",
+		TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
+	})
+
+	local function pingColor(p)
+		return p <= 80 and C.Good or (p <= 150 and C.Gold or C.Warn)
+	end
+	G.TabTick[G.TI.network] = function()
+		local ping = getPing()
+		pingBig.Text = ping and tostring(math.floor(ping + 0.5)) or "—"
+		pingBig.TextColor3 = ping and pingColor(ping) or C.Dim
+		local st, sc, jitter = Ext.stability()
+		stabL.Text = st .. (jitter and jitter > 0 and ("  ·  " .. T("oscilação") .. " " .. math.floor(jitter + 0.5) .. " ms") or "")
+		stabL.TextColor3 = sc
+		local okR, recv = pcall(function()
+			return Stats.DataReceiveKbps
+		end)
+		local okS, send = pcall(function()
+			return Stats.DataSendKbps
+		end)
+		dataL.Text = T("Recebendo") .. " " .. (okR and string.format("%.1f", recv) or "—") .. " KB/s  ·  "
+			.. T("Enviando") .. " " .. (okS and string.format("%.1f", send) or "—") .. " KB/s"
+		local base = Ext.pingBase or { sum = 0, n = 0 }
+		local n = base.n + (Ext.sessionPingN or 0)
+		avgL.Text = n > 0 and (T("Média neste jogo") .. ": " .. math.floor((base.sum + (Ext.sessionPingSum or 0)) / n + 0.5) .. " ms") or ""
+		local p = Ext.pings
+		local maxv = 150
+		for _, v in ipairs(p) do
+			maxv = math.max(maxv, v)
+		end
+		local offset = BARS - #p
+		for i = 1, BARS do
+			local v = p[i - offset]
+			bars[i].Size = UDim2.new(1 / BARS, -2, v and math.clamp(v / maxv, 0.05, 1) or 0.05, 0)
+			bars[i].BackgroundColor3 = v and pingColor(v):Lerp(A, 0.35) or C.Surface2
+			bars[i].BackgroundTransparency = (i == BARS) and 0 or 0.35
+		end
+	end
+end)
+
+--------------------------------------------------------------------------
 -- ABA · SERVER
 --------------------------------------------------------------------------
 Ext.run(function()
@@ -6462,6 +7419,7 @@ Ext.run(function()
 			end
 		end)
 	end
+	Ext.searchServers = search
 
 	-- quatro ações em blocos
 	local grid = make("Frame", {
@@ -6582,8 +7540,12 @@ Ext.run(function()
 		local t = Active.vis_time and Ext.time or 2
 		local cols = SKYCOL[t]
 		local top, bottom = cols[1], cols[2]
-		if Active.vis_sky and Ext.sky == 4 then
-			top, bottom = C.Pink, C.Blush
+		if Active.vis_sky then
+			local SKYPREV = {
+				{ rgb(120, 170, 230), rgb(210, 228, 245) }, { C.Salmon, C.Gold }, { rgb(90, 190, 220), rgb(200, 240, 235) },
+				{ rgb(80, 150, 230), rgb(200, 225, 250) }, { rgb(20, 16, 40), rgb(90, 50, 110) },
+			}
+			top, bottom = SKYPREV[Ext.sky][1], SKYPREV[Ext.sky][2]
 		end
 		if Active.vis_shader then
 			local sw = Ext.SHADERS[Ext.shader].swatch
@@ -6652,9 +7614,10 @@ Ext.run(function()
 	Section(body, nextOrder(), "GALERIA", A)
 	local LOOK = { G.ById.vis_time, G.ById.vis_fullbright, G.ById.vis_sky, G.ById.vis_shader }
 	local BUILTIN = {
-		{ name = "Pôr do sol", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 4, vis_sky = 3, vis_shader = 1 } } },
+		{ name = "Pôr do sol", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 4, vis_sky = 2, vis_shader = 1 } } },
 		{ name = "Noite neon", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 5, vis_sky = 5, vis_shader = 4 } } },
-		{ name = "Dia limpo", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 2, vis_sky = 2, vis_shader = 2 } } },
+		{ name = "Tropical", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 3, vis_sky = 3, vis_shader = 2 } } },
+		{ name = "Dia limpo", cap = { on = { "vis_time", "vis_sky", "vis_shader" }, choices = { vis_time = 2, vis_sky = 4, vis_shader = 2 } } },
 		{ name = "Cinema", cap = { on = { "vis_time", "vis_shader" }, choices = { vis_time = 3, vis_shader = 3 } } },
 	}
 	local galleryWrap = make("Frame", { LayoutOrder = nextOrder(), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Parent = body }, {
@@ -6759,13 +7722,13 @@ Ext.run(function()
 	end)
 
 	-- print limpa
-	Section(body, nextOrder(), "PRINT LIMPA", A)
+	Section(body, nextOrder(), "MODO PRINT", A)
 	text({
 		LayoutOrder = nextOrder(),
-		Text = "Segure o botão flutuante sem mover para tirar uma print sem menus nem HUD.",
+		Text = "Segure o botão flutuante sem mover: tudo some por alguns segundos e você tira a print pelo celular.",
 		TextSize = 12, TextColor3 = C.Sub, TextWrapped = true, Size = UDim2.new(1, 0, 0, 18), Parent = body,
 	})
-	local modeRow = Row(body, nextOrder(), { title = "Modo da print", desc = "Cinema liga gráficos no máximo e shader só na hora", accent = A, rightWidth = 200, pressable = false })
+	local modeRow = Row(body, nextOrder(), { title = "Modo da print", desc = "Cinema liga gráficos no máximo e shader enquanto está escondido", accent = A, rightWidth = 200, pressable = false })
 	Ext.shotModeSeg = Segmented(modeRow.frame, {
 		items = { "Normal", "Cinema" },
 		index = Prefs.shotMode,
@@ -6778,7 +7741,7 @@ Ext.run(function()
 			scheduleSave()
 		end,
 	})
-	local holdRow = Row(body, nextOrder(), { title = "Segurar o botão por", desc = "Tempo até a print ser tirada", accent = A, rightWidth = 150, pressable = false })
+	local holdRow = Row(body, nextOrder(), { title = "Segurar o botão por", desc = "Tempo segurando até esconder tudo", accent = A, rightWidth = 150, pressable = false })
 	Ext.shotHoldStepper = Stepper(holdRow.frame, {
 		choices = { 1, 2, 3 },
 		index = Prefs.shotHold,
@@ -6790,8 +7753,20 @@ Ext.run(function()
 			scheduleSave()
 		end,
 	}, A, 16)
-	local nowRow = Row(body, nextOrder(), { title = "Tirar print agora", desc = "Fecha o menu, tira a print e volta", accent = A, rightWidth = 140, pressable = false })
-	Button(nowRow.frame, { text = "Tirar print", style = "filled", accent = A, size = UDim2.fromOffset(112, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
+	local hideRow = Row(body, nextOrder(), { title = "Esconder tudo por", desc = "Tempo para você tirar a print", accent = A, rightWidth = 150, pressable = false })
+	Ext.shotHideStepper = Stepper(hideRow.frame, {
+		choices = { 1, 2, 3 },
+		index = Prefs.shotHide,
+		fmt = function(v)
+			return Ext.SHOT_HIDES[v] .. " s"
+		end,
+		onChange = function(v)
+			Prefs.shotHide = v
+			scheduleSave()
+		end,
+	}, A, 16)
+	local nowRow = Row(body, nextOrder(), { title = "Esconder agora", desc = "Fecha o menu e esconde tudo; depois volta sozinho", accent = A, rightWidth = 140, pressable = false })
+	Button(nowRow.frame, { text = "Esconder", style = "filled", accent = A, size = UDim2.fromOffset(112, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
 		if Ext.takeShot then
 			Ext.takeShot()
 		end
@@ -7113,10 +8088,24 @@ local function writeSave()
 		return
 	end
 	local data = {
-		version = 3,
+		version = 4,
 		prefs = Prefs,
 		remember = Prefs.remember,
-		games = Ext.Games,
+		games = (function()
+			local n = Ext.sessionPingN or 0
+			if n > 0 and Ext.GKEY and type(Ext.Games) == "table" then
+				local e = type(Ext.Games[Ext.GKEY]) == "table" and Ext.Games[Ext.GKEY] or {}
+				Ext.Games[Ext.GKEY] = e
+				local b = Ext.pingBase or { sum = 0, n = 0 }
+				-- guarda só uma média “comprimida” para o arquivo não crescer
+				local total, cnt = b.sum + (Ext.sessionPingSum or 0), b.n + n
+				if cnt > 2000 then
+					total, cnt = total / cnt * 2000, 2000
+				end
+				e.ping = { sum = total, n = cnt }
+			end
+			return Ext.Games
+		end)(),
 		profiles = Ext.Profiles,
 		gallery = Ext.Gallery,
 	}
@@ -7133,7 +8122,7 @@ local function writeSave()
 			data.farm[id] = Active[id] == true
 		end
 		data.choices = {}
-		for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS }) do
+		for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS, G.NETWORK_OPTIONS }) do
 			for _, opt in ipairs(l) do
 				if opt.choices then
 					data.choices[opt.id] = opt.choices[opt.choiceIndex]
@@ -7146,6 +8135,7 @@ local function writeSave()
 		data.hl = Ext.hl
 		data.audio = Audio.capture()
 		data.protect = Ext.captureList(G.PROTECT_LIST)
+		data.network = Ext.captureList(G.NETWORK_OPTIONS)
 	end
 	local ok, json = pcall(function()
 		return HttpService:JSONEncode(data)
@@ -7182,7 +8172,7 @@ local function loadSave()
 		end
 	end
 	if type(data.choices) == "table" then
-		for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS }) do
+		for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS, G.NETWORK_OPTIONS }) do
 			for _, opt in ipairs(l) do
 				local v = opt.choices and data.choices[opt.id]
 				if v ~= nil then
@@ -7204,6 +8194,14 @@ local function loadSave()
 		Hud.Position = UDim2.fromOffset(data.hudPos[1], data.hudPos[2])
 	end
 	local preset
+	-- nomes antigos (antes da v6.4): extreme virou high, potato virou extreme
+	if (tonumber(data.version) or 0) < 4 then
+		if data.preset == "extreme" then
+			data.preset = "high"
+		elseif data.preset == "potato" then
+			data.preset = "extreme"
+		end
+	end
 	for _, p in ipairs(G.PRESETS) do
 		if p.id == data.preset then
 			preset = p
@@ -7239,6 +8237,9 @@ local function loadSave()
 	end
 	if type(data.protect) == "table" then
 		Ext.applyList(G.PROTECT_LIST, data.protect)
+	end
+	if type(data.network) == "table" then
+		Ext.applyList(G.NETWORK_OPTIONS, data.network)
 	end
 	if type(data.audio) == "table" then
 		Audio.load(data.audio)
@@ -7468,21 +8469,21 @@ makeDraggable(G.FabBtn, Fab, function(moved)
 	end
 end)
 
--- print limpa: esconde menu, HUD e interfaces, tira a print e volta tudo
+-- modo print: esconde menu, HUD e interfaces por alguns segundos para você tirar
+-- a print pelo próprio celular/PC; depois volta tudo sozinho
 function Ext.takeShot()
 	if Ext.shotBusy then
-		return
-	end
-	local okCS, CS = pcall(function()
-		return game:GetService("CaptureService")
-	end)
-	if not okCS or not CS then
-		toast("Print indisponível neste ambiente", C.Warn)
 		return
 	end
 	Ext.shotBusy = true
 	task.spawn(function()
 		local cinema = Prefs.shotMode == 2
+		local secs = Ext.SHOT_HIDES[Prefs.shotHide] or 5
+		local wasOpen = G.isOpen
+		if wasOpen then
+			setOpen(false)
+			task.wait(0.25)
+		end
 		Gui.Enabled = false
 		if G.BlackGui then
 			G.BlackGui.Enabled = false
@@ -7498,6 +8499,9 @@ function Ext.takeShot()
 				StarterGui:SetCoreGuiEnabled(t, false)
 			end)
 		end
+		pcall(function()
+			StarterGui:SetCore("TopbarEnabled", false)
+		end)
 		local hidden = {}
 		local pg = LocalPlayer:FindFirstChildOfClass("PlayerGui")
 		if pg then
@@ -7523,23 +8527,8 @@ function Ext.takeShot()
 			if not Active.vis_shader then
 				Ext.makeShader(Ext.SHADERS[3], cin)
 			end
-			task.wait(1.4)
-		else
-			task.wait(0.25)
 		end
-		local done = false
-		local okCap = pcall(function()
-			CS:CaptureScreenshot(function(contentId)
-				done = true
-				pcall(function()
-					CS:PromptSaveCapturesToGallery({ contentId }, function() end)
-				end)
-			end)
-		end)
-		local t0 = os.clock()
-		while okCap and not done and os.clock() - t0 < 4 do
-			task.wait()
-		end
+		task.wait(secs)
 		for _, e in ipairs(cin) do
 			pcall(function()
 				e:Destroy()
@@ -7563,15 +8552,16 @@ function Ext.takeShot()
 				StarterGui:SetCoreGuiEnabled(t, v)
 			end)
 		end
+		pcall(function()
+			StarterGui:SetCore("TopbarEnabled", true)
+		end)
 		if G.BlackGui then
 			G.BlackGui.Enabled = true
 		end
 		Gui.Enabled = true
 		Ext.shotBusy = false
-		if okCap and done then
-			toast("Print tirada · confirme para salvar na galeria", C.Pink)
-		else
-			toast("Não foi possível tirar a print neste ambiente", C.Warn)
+		if wasOpen then
+			setOpen(true)
 		end
 	end)
 end
@@ -7798,7 +8788,7 @@ Ext.run(function()
 		local defaults = {
 			remember = false, openOnStart = true, reduceMotion = false, keybind = "RightShift",
 			hudVisible = true, hudLayout = 1, hudSize = 2, notify = true, fabSize = 2, fabAlpha = 1,
-			shotMode = 1, shotHold = 3,
+			shotMode = 1, shotHold = 3, shotHide = 2,
 		}
 		for k, v in pairs(defaults) do
 			Prefs[k] = v
@@ -7877,6 +8867,9 @@ local function applyPrefsToUI()
 	G.HudControls.size.Set(Prefs.hudSize, true)
 	Ext.shotModeSeg.Set(Prefs.shotMode, true)
 	Ext.shotHoldStepper.Set(Prefs.shotHold, true)
+	if Ext.shotHideStepper then
+		Ext.shotHideStepper.Set(Prefs.shotHide, true)
+	end
 	Ext.hlColorStepper.Set(Ext.hl.color, true)
 	Ext.hlAlphaStepper.Set(Ext.hl.alpha, true)
 	refreshKeyCap()
@@ -7891,7 +8884,7 @@ Ext.applyPrefsToUI = applyPrefsToUI
 -- desliga tudo de todas as abas (Restaurar tudo / Reset de fábrica)
 function Ext.restoreEverything()
 	local map = {}
-	for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS, G.PROTECT_LIST }) do
+	for _, l in ipairs({ OPTIONS, G.FARM_OPTIONS, G.VISUAL_OPTIONS, G.PROTECT_LIST, G.NETWORK_OPTIONS }) do
 		for _, opt in ipairs(l) do
 			map[opt.id] = false
 		end
@@ -7916,17 +8909,19 @@ local function refreshBadges()
 	local nOpt = countActive(OPTIONS)
 	local nVis = countActive(G.VISUAL_OPTIONS)
 	local nPro = countActive(G.PROTECT_LIST)
+	local nNet = countActive(G.NETWORK_OPTIONS)
 	local audioOn = Audio.needed() or Audio.mult.voice ~= 1
 	local optimize = State.preset and State.preset.name or (nOpt > 0 and tostring(nOpt) or "")
 	if G.FarmSince then
 		optimize = optimize ~= "" and (optimize .. " · Farm") or "Farm"
 	end
-	local custom = nVis + (audioOn and 1 or 0)
 	local values = {
 		optimize = optimize,
-		custom = custom > 0 and tostring(custom) or "",
+		visual = nVis > 0 and tostring(nVis) or "",
+		audio = audioOn and "ON" or "",
 		server = (Ext.friendsInGame or 0) > 0 and tostring(Ext.friendsInGame) or "",
 		protect = nPro > 0 and tostring(nPro) or "",
+		network = nNet > 0 and tostring(nNet) or "",
 	}
 	for gi, ui in ipairs(G.MainUI) do
 		local v = values[GROUPS[gi].id] or ""
@@ -7956,6 +8951,8 @@ local function Tick()
 	-- amostras de ping para a estabilidade do servidor
 	local ping = getPing()
 	if ping then
+		Ext.sessionPingSum = (Ext.sessionPingSum or 0) + ping
+		Ext.sessionPingN = (Ext.sessionPingN or 0) + 1
 		table.insert(Ext.pings, ping)
 		if #Ext.pings > 24 then
 			table.remove(Ext.pings, 1)
@@ -8077,6 +9074,20 @@ end
 -- NOVIDADES -------------------------------------------------------------------
 Ext.run(function()
 	local CHANGELOG = {
+		{ v = "6.5", items = {
+			"Nova aba Rede: ping ao vivo, gráfico, ajustes por FFlag e limites por distância",
+			"Desbloqueio de FPS por FFlag e opções avançadas de executor",
+			"Presets Soft, Medium, High e Extreme (Extreme substitui o Potato)",
+			"Céus reais com várias opções e modo print que esconde tudo",
+			"Ícones desenhados e áreas de toque separadas (sem desligar sem querer)",
+			"Sistema de key e aviso de atualização",
+		} },
+		{ v = "6.4", items = {
+			"Áudio virou aba própria na lateral, sem ficar escondido",
+			"Ícones refeitos: cheios, arredondados e fáceis de reconhecer",
+			"Ícones também nas sub-abas horizontais",
+			"Print: esconder a interface para tirar pelo próprio celular",
+		} },
 		{ v = "6.3", items = {
 			"Menu lateral com 6 abas, ícones e botões maiores",
 			"Sub-abas horizontais dentro de Otimização, Personalizar, Servidor e Configurações",
@@ -8175,6 +9186,7 @@ Ext.run(function()
 	local PARTS = {
 		{ id = "tweaks", name = "Ajustes" }, { id = "farm", name = "Farm" }, { id = "visual", name = "Visual" },
 		{ id = "audio", name = "Áudio" }, { id = "protect", name = "Proteção" }, { id = "hud", name = "HUD" },
+		{ id = "network", name = "Rede" },
 	}
 	local function capturePart(id)
 		if id == "tweaks" then
@@ -8189,6 +9201,8 @@ Ext.run(function()
 			return Audio.capture()
 		elseif id == "protect" then
 			return Ext.captureList(G.PROTECT_LIST)
+		elseif id == "network" then
+			return Ext.captureList(G.NETWORK_OPTIONS)
 		elseif id == "hud" then
 			return { overlays = table.clone(G.OverlayOn), visible = Prefs.hudVisible, layout = Prefs.hudLayout, size = Prefs.hudSize }
 		end
@@ -8216,6 +9230,8 @@ Ext.run(function()
 			Audio.load(cap)
 		elseif id == "protect" then
 			Ext.applyList(G.PROTECT_LIST, cap)
+		elseif id == "network" then
+			Ext.applyList(G.NETWORK_OPTIONS, cap)
 		elseif id == "hud" then
 			for k, v in pairs(type(cap.overlays) == "table" and cap.overlays or {}) do
 				if G.OverlayOn[k] ~= nil then
@@ -8470,6 +9486,11 @@ Splash.step("Montando interface", 0.72)
 selectTab(G.TI.home, true)
 Splash.step("Carregando preferências", 0.88)
 loadSave()
+Ext.run(function()
+	local e = type(Ext.Games) == "table" and Ext.GKEY and Ext.Games[Ext.GKEY]
+	local pg = type(e) == "table" and e.ping
+	Ext.pingBase = (type(pg) == "table" and type(pg.sum) == "number" and type(pg.n) == "number") and { sum = pg.sum, n = pg.n } or { sum = 0, n = 0 }
+end)
 applyPrefsToUI()
 -- preset salvo para este jogo (benchmark ou "Meu preset")
 Ext.run(function()
@@ -8485,6 +9506,85 @@ if Ext.refreshGameCard then
 	Ext.refreshGameCard()
 end
 Splash.finish()
+
+-- KEY ------------------------------------------------------------------------
+Ext.run(function()
+	local KEY = "buu"
+	if Destroyed or Prefs.keyOk == KEY then
+		return
+	end
+	local done = false
+	local overlay = make("Frame", { Name = "KeyGate", Size = UDim2.fromScale(1, 1), BackgroundColor3 = C.Black, BackgroundTransparency = 0.35, BorderSizePixel = 0, Active = true, ZIndex = 60, Parent = Gui })
+	local card = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(300, 236),
+		BackgroundColor3 = C.Bg, BorderSizePixel = 0, Parent = overlay,
+	}, { corner(26), stroke(C.Stroke, 1, 0) })
+	local sc = make("UIScale", { Scale = 0.9, Parent = card })
+	make("Frame", { Size = UDim2.new(1, 0, 0, 120), BackgroundColor3 = C.Salmon, BorderSizePixel = 0, Parent = card },
+		{ corner(26), make("UIGradient", { Rotation = 90, Transparency = NumberSequence.new(0.82, 1) }) })
+	local ic = Ext.icon(card, "key", 30, C.Salmon)
+	if ic then
+		ic.AnchorPoint = Vector2.new(0.5, 0)
+		ic.Position = UDim2.new(0.5, 0, 0, 24)
+	end
+	text({ Text = "Digite a key", Font = F.Heavy, TextSize = 20, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(20, 62), Size = UDim2.new(1, -40, 0, 24), Parent = card })
+	local msg = text({ Text = "Para liberar o Silly Optimizer", TextSize = 12, TextColor3 = C.Sub, TextXAlignment = Enum.TextXAlignment.Center, Position = UDim2.fromOffset(20, 88), Size = UDim2.new(1, -40, 0, 16), Parent = card })
+	local box = make("TextBox", {
+		Text = "", PlaceholderText = T("Key"), PlaceholderColor3 = C.Dim, Font = F.Semi, TextSize = 15, TextColor3 = C.Text,
+		ClearTextOnFocus = false, TextXAlignment = Enum.TextXAlignment.Center,
+		Position = UDim2.fromOffset(24, 120), Size = UDim2.new(1, -48, 0, 42),
+		BackgroundColor3 = C.Surface2, BorderSizePixel = 0, Parent = card,
+	}, { corner(12), pad(12, 0, 12, 0) })
+	local boxStroke = stroke(C.Stroke, 1, 0)
+	boxStroke.Parent = box
+	local enter = Button(card, { text = "Entrar", style = "filled", accent = C.Salmon, size = UDim2.new(1, -48, 0, 42), anchor = Vector2.new(0.5, 0), position = UDim2.new(0.5, 0, 0, 174) })
+	TweenService:Create(sc, TweenInfo.new(0.45, EASE.Back), { Scale = 1 }):Play()
+
+	local function shake()
+		local x = card.Position
+		for _, dx in ipairs({ -10, 9, -7, 5, -3, 0 }) do
+			card.Position = x + UDim2.fromOffset(dx, 0)
+			task.wait(0.035)
+		end
+		card.Position = x
+	end
+	local function try()
+		if done then
+			return
+		end
+		local k = string.lower((box.Text:gsub("%s", "")))
+		if k == KEY then
+			done = true
+			Prefs.keyOk = KEY
+			scheduleSave()
+			boxStroke.Color = C.Good
+			msg.Text = T("Key correta")
+			msg.TextColor3 = C.Good
+			burst(card, UDim2.fromOffset(150, 40), 10, 60)
+			task.wait(0.35)
+			TweenService:Create(sc, TweenInfo.new(0.3, EASE.Quint), { Scale = 1.06 }):Play()
+			TweenService:Create(overlay, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+			task.delay(0.3, function()
+				overlay:Destroy()
+			end)
+		else
+			boxStroke.Color = C.Warn
+			msg.Text = T("Key incorreta")
+			msg.TextColor3 = C.Warn
+			task.spawn(shake)
+		end
+	end
+	enter.Activated:Connect(try)
+	box.FocusLost:Connect(function(enterPressed)
+		if enterPressed then
+			try()
+		end
+	end)
+	while not done and not Destroyed do
+		task.wait(0.1)
+	end
+	task.wait(0.3)
+end)
 
 if not Destroyed then
 	task.wait(0.15)
@@ -8504,6 +9604,36 @@ if not Destroyed then
 			toast(T("Preset deste jogo aplicado") .. ": " .. T(names[Ext.autoApplied] or ""), C.Salmon)
 		end)
 	end
+	-- aviso de atualização (compara com a versão publicada no GitHub)
+	task.delay(3, function()
+		local ok, src = pcall(function()
+			return game:HttpGet(G.UPDATE_URL)
+		end)
+		if Destroyed or not ok or type(src) ~= "string" then
+			return
+		end
+		local remote = src:match('local%s+VERSION%s*=%s*"([%d%.]+)"')
+		local function newer(a, b)
+			local pa, pb = {}, {}
+			for n in a:gmatch("%d+") do
+				pa[#pa + 1] = tonumber(n)
+			end
+			for n in b:gmatch("%d+") do
+				pb[#pb + 1] = tonumber(n)
+			end
+			for i = 1, math.max(#pa, #pb) do
+				local x, y = pa[i] or 0, pb[i] or 0
+				if x ~= y then
+					return x > y
+				end
+			end
+			return false
+		end
+		if remote and newer(remote, VERSION) then
+			Ext.updateVersion = remote
+			toast(T("Atualização disponível") .. ": v" .. remote .. " · " .. T("execute o loadstring de novo"), C.Gold)
+		end
+	end)
 	-- novidades na primeira execução de uma versão nova
 	if Prefs.lastVersion ~= VERSION then
 		Prefs.lastVersion = VERSION
