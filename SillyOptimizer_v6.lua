@@ -22,7 +22,7 @@ local function SillyMain()
 -- estado e peças da interface ficam em G (poupa variáveis locais: alguns executores têm limite baixo)
 local G = {}
 
-local VERSION = "6.5.1"
+local VERSION = "6.6"
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -220,10 +220,47 @@ end
 
 -- tradução: o texto em português é a chave; sem tradução, fica em português
 local EN = { -- EN_DICT
+	["Botão flutuante sempre dentro da tela e sem o X pequeno: o botão abre e fecha"] = "Floating button always on screen and no tiny X: the button opens and closes",
+	["Arrastar a câmera por cima do HUD ou do botão não puxa mais eles junto"] = "Dragging the camera over the HUD or button no longer drags them along",
+	["FFlags que não existem na sua versão do Roblox não aparecem mais"] = "FFlags that don't exist in your Roblox version no longer show up",
+	["Servidor: reentrar, mais vazio e menor ping com mais compatibilidade e motivo do erro"] = "Server: rejoin, emptiest and lowest ping with better compatibility and error reasons",
+	["Amigos online em qualquer experiência e convite direto para um amigo"] = "Friends online in any experience and direct invite to one friend",
+	["Home nova com informações do seu aparelho e preset recomendado"] = "New Home with your device info and a recommended preset",
+	["Seu celular, a conta e o que está ligado"] = "Your phone, your account and what's on",
+	["Seu PC, a conta e o que está ligado"] = "Your PC, your account and what's on",
+	["PLATAFORMA"] = "PLATFORM",
+	["CONTROLE"] = "INPUT",
+	["TELA"] = "SCREEN",
+	["GRÁFICOS"] = "GRAPHICS",
+	["Celular"] = "Phone",
+	["Celular Android"] = "Android phone",
+	["Tablet Android"] = "Android tablet",
+	["Toque"] = "Touch",
+	["Toque + teclado"] = "Touch + keyboard",
+	["Teclado e mouse"] = "Keyboard & mouse",
+	["Controle"] = "Controller",
+	["deitado"] = "landscape",
+	["em pé"] = "portrait",
+	["Automático"] = "Automatic",
+	["RECOMENDADO PARA O SEU CELULAR"] = "RECOMMENDED FOR YOUR PHONE",
+	["RECOMENDADO PARA O SEU PC"] = "RECOMMENDED FOR YOUR PC",
+	["O FPS está baixo para um celular."] = "FPS is low for a phone.",
+	["O celular está aguentando bem."] = "Your phone is handling it well.",
+	["Dá para ganhar FPS no seu PC."] = "You can gain FPS on your PC.",
+	["Seu PC está sobrando."] = "Your PC has power to spare.",
+	["Sugestão"] = "Suggestion",
+	["já está ligado"] = "already on",
+	["Convidar"] = "Invite",
+	["Não consegui falar com o Roblox"] = "Couldn't reach Roblox",
+	["O Roblox recusou a busca"] = "Roblox refused the search",
+	["Nenhum outro servidor com vaga agora"] = "No other server with free slots right now",
+	["A lista de servidores vem do próprio Roblox. O ping de cada servidor é uma estimativa. Ao trocar de servidor o painel abre sozinho de novo quando o executor permite."] = "The server list comes from Roblox itself. Each server's ping is an estimate. After switching servers the panel reopens by itself when the executor allows it.",
+	["Esse ajuste não existe na sua versão do Roblox · removido da lista"] = "This tweak doesn't exist in your Roblox version · removed from the list",
 	["Opções que seu executor não suporta ficam escondidas (sem lista cheia de Indisponível)"] = "Options your executor can't run are hidden (no list full of Unavailable)",
 	["Quando algo falha, mostra o motivo real e gera um relatório em Configurações"] = "When something fails it shows the real reason and builds a report in Settings",
 	["Procura as funções do executor também no getgenv"] = "Also looks for executor functions in getgenv",
-	["opções escondidas: seu executor não tem as funções que elas precisam (veja Configurações › Compatibilidade)"] = "options hidden: your executor lacks the functions they need (see Settings › Compatibility)",
+	["opções escondidas: não funcionam no seu executor ou nesta versão do Roblox"] = "options hidden: they don't work on your executor or this Roblox version",
+	["Libera mais de 60 FPS"] = "Unlocks more than 60 FPS",
 	["Não funcionou aqui"] = "Didn't work here",
 	["Ajustes por FFlag"] = "FFlag tweaks",
 	["Função setfflag (rede, FPS e avançados)"] = "setfflag function (network, FPS and advanced)",
@@ -1337,13 +1374,37 @@ local function clampInside(obj, keep)
 end
 
 -- arrastar que funciona com mouse e toque (sem vazar conexões)
+-- onde cada toque começou (para não "pegar" o HUD quando o dedo passa por cima)
+G.TouchStarts = setmetatable({}, { __mode = "k" })
+track(UserInputService.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch then
+		G.TouchStarts[input] = Vector2.new(input.Position.X, input.Position.Y)
+	end
+end))
+local function startedInside(gui, input)
+	local p = G.TouchStarts[input]
+	if not p then
+		return input.UserInputState == Enum.UserInputState.Begin
+	end
+	local a, s = gui.AbsolutePosition, gui.AbsoluteSize
+	local x, y = p.X, p.Y
+	local pad = 6
+	local function inside(yy)
+		return x >= a.X - pad and x <= a.X + s.X + pad and yy >= a.Y - pad and yy <= a.Y + s.Y + pad
+	end
+	-- a posição do toque pode vir com ou sem a barra do topo, aceita as duas
+	return inside(y) or inside(y - G.TopInset) or inside(y + G.TopInset)
+end
 local function makeDraggable(handle, target, onRelease)
-	local dragInput, startPos, startInput, moved
+	local dragInput, startPos, startInput, moved, checked
 	handle.InputBegan:Connect(function(input)
 		if dragInput or not isPress(input) then
 			return
 		end
-		dragInput, moved = input, false
+		if input.UserInputState ~= Enum.UserInputState.Begin then
+			return
+		end
+		dragInput, moved, checked = input, false, input.UserInputType ~= Enum.UserInputType.Touch
 		startInput, startPos = input.Position, target.Position
 	end)
 	track(UserInputService.InputChanged:Connect(function(input)
@@ -1352,6 +1413,13 @@ local function makeDraggable(handle, target, onRelease)
 		end
 		local isTouch = dragInput.UserInputType == Enum.UserInputType.Touch
 		if (isTouch and input == dragInput) or (not isTouch and input.UserInputType == Enum.UserInputType.MouseMovement) then
+			if not checked then
+				checked = true
+				if not startedInside(handle, dragInput) then
+					dragInput = nil -- o dedo veio de fora (câmera): ignora
+					return
+				end
+			end
 			local delta = input.Position - startInput
 			if not moved and delta.Magnitude > 6 then
 				moved = true
@@ -1594,13 +1662,43 @@ function Ext.inCharacter(inst)
 end
 
 -- FFlags (só executor): guarda o valor original e devolve ao desligar
-Ext.FF = { orig = {}, owners = {} }
+Ext.FF = { orig = {}, owners = {}, ok = {} }
+-- a FFlag existe nesta versão do Roblox? (o executor recusa as que não existem)
+function Ext.FF.valid(name)
+	if not Env.setfflag then
+		return false
+	end
+	local c = Ext.FF.ok[name]
+	if c ~= nil then
+		return c
+	end
+	if Env.getfflag then
+		local ok, v = pcall(Env.getfflag, name)
+		c = ok and v ~= nil and tostring(v) ~= ""
+	else
+		c = true -- sem getfflag: descobre na hora de aplicar
+	end
+	Ext.FF.ok[name] = c
+	return c
+end
+function Ext.FF.count(flags)
+	local n = 0
+	for name in pairs(flags) do
+		if Ext.FF.valid(name) then
+			n += 1
+		end
+	end
+	return n
+end
 function Ext.FF.set(owner, flags)
 	if not Env.setfflag then
 		return false
 	end
 	local any = false
 	for name, value in pairs(flags) do
+		if not Ext.FF.valid(name) then
+			continue
+		end
 		if Ext.FF.orig[name] == nil then
 			local okG, v = false, nil
 			if Env.getfflag then
@@ -1614,6 +1712,7 @@ function Ext.FF.set(owner, flags)
 			any = true
 		else
 			Ext.FF.lastErr = tostring(e)
+			Ext.FF.ok[name] = false
 		end
 	end
 	return any, (not any) and ("setfflag: " .. tostring(Ext.FF.lastErr or "recusado")) or nil
@@ -1985,8 +2084,8 @@ Ext.run(function()
 		  end,
 		  custom = { on = accOn, off = accOff } },
 		{ id = "fps_unlock", cat = "DESEMPENHO", title = "FPS desbloqueado",
-		  desc = (Env.setfpscap or Env.setfflag) and "Libera mais de 60 FPS (setfpscap + FFlag)" or "Indisponível: precisa de executor",
-		  locked = not (Env.setfpscap or Env.setfflag), noPreset = true,
+		  desc = "Libera mais de 60 FPS",
+		  locked = not (Env.setfpscap or Ext.FF.valid("DFIntTaskSchedulerTargetFps")), noPreset = true,
 		  choices = { 120, 144, 240, 999 }, choiceIndex = 3,
 		  fmt = function(v)
 			  return v >= 999 and T("Sem limite") or (v .. " FPS")
@@ -2016,8 +2115,8 @@ Ext.run(function()
 	local function ffOption(id, title, desc, flags)
 		return {
 			id = id, cat = "AVANÇADO · EXECUTOR", title = title, exec = true,
-			desc = Env.setfflag and desc or "Indisponível: precisa de executor (setfflag)",
-			locked = not Env.setfflag,
+			desc = desc, ffFlags = flags,
+			locked = Ext.FF.count(flags) == 0,
 			custom = {
 				on = function()
 					return Ext.FF.set(id, flags)
@@ -3394,8 +3493,8 @@ Ext.run(function()
 	local function ffNet(id, title, desc, flags)
 		return {
 			id = id, cat = "AJUSTES DE REDE · FFLAG", tab = "network", title = title, exec = true,
-			desc = Env.setfflag and desc or "Indisponível: precisa de executor (setfflag)",
-			locked = not Env.setfflag,
+			desc = desc, ffFlags = flags,
+			locked = Ext.FF.count(flags) == 0,
 			custom = {
 				on = function()
 					return Ext.FF.set(id, flags)
@@ -3977,6 +4076,20 @@ local function setOptions(map)
 						warn("[Silly Optimizer] " .. tostring(opt.id) .. ": " .. s.err)
 						Ext.errLog = Ext.errLog or {}
 						Ext.errLog[opt.id] = s.err
+						-- FFlag que não existe nesta versão: some da lista em vez de ficar dando erro
+						if opt.ffFlags and Ext.FF.count(opt.ffFlags) == 0 then
+							opt.locked = true
+							Active[id] = false
+							local row = G.OptionRows[id]
+							task.defer(function()
+								if row and row.frame then
+									row.frame.Visible = false
+								end
+								if Hooks.toast then
+									Hooks.toast(T("Esse ajuste não existe na sua versão do Roblox · removido da lista"), C.Warn)
+								end
+							end)
+						end
 					end
 				end
 			else
@@ -4116,7 +4229,8 @@ G.ById.quality.onChoice = function(v)
 	end
 end
 
-local function applyPreset(p)
+local applyPreset
+applyPreset = function(p)
 	local inList = {}
 	if p then
 		for _, id in ipairs(p.list) do
@@ -4753,7 +4867,7 @@ G.SUB_Y = 58
 -- cada aba tem a própria cor de destaque (sempre pastel)
 local TABS = {
 	{ id = "home", name = "Home", kicker = "HOME", accent = C.Coral,
-	  title = "Olá!", sub = "Seu resumo: conta, servidor, desempenho e amigos" },
+	  title = "Olá!", sub = Env.touch and "Seu celular, a conta e o que está ligado" or "Seu PC, a conta e o que está ligado" },
 	{ id = "presets", name = "Presets", kicker = "PRESETS", accent = C.Salmon,
 	  title = "Desempenho em um toque", sub = "Escolha um nível ou deixe o benchmark decidir" },
 	{ id = "tweaks", name = "Ajustes", kicker = "AJUSTES", accent = C.Gold,
@@ -4928,7 +5042,8 @@ Ext.run(function() -- rodapé do menu lateral: [tecla] abre e fecha
 		Parent = foot,
 	})
 	refreshKeyCap = function()
-		capLabel.Text = Env.touch and "Botão flutuante" or (G.KEY_NAMES[Prefs.keybind] or Prefs.keybind)
+		capLabel.Text = Env.touch and "Mobile" or "PC"
+		hint.Text = Env.touch and "" or ((G.KEY_NAMES[Prefs.keybind] or Prefs.keybind) .. " " .. T("abre e fecha"))
 		hint.Visible = not Env.touch
 	end
 end)
@@ -5413,6 +5528,7 @@ local CloseBtn = make("TextButton", {
 	Size = UDim2.fromOffset(30, 30),
 	BackgroundColor3 = C.Surface2,
 	BorderSizePixel = 0,
+	Visible = false, -- fecha pelo botão flutuante (celular) ou pela tecla (PC)
 	Parent = Window,
 }, { corner("full") })
 G.CloseBars = {}
@@ -6298,7 +6414,7 @@ Ext.run(function()
 	if (Ext.hidden["OPTIONS"] or 0) > 0 then
 		text({
 			LayoutOrder = nextOrder(),
-			Text = Ext.hidden["OPTIONS"] .. " " .. T("opções escondidas: seu executor não tem as funções que elas precisam (veja Configurações › Compatibilidade)"),
+			Text = Ext.hidden["OPTIONS"] .. " " .. T("opções escondidas: não funcionam no seu executor ou nesta versão do Roblox"),
 			TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
 		})
 	end
@@ -6976,8 +7092,8 @@ Ext.run(function()
 		make("UIGridLayout", { CellSize = UDim2.new(1 / 3, -6, 0, 74), CellPadding = UDim2.fromOffset(9, 9), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	local STATS = {
-		{ "fps", "FPS" }, { "ping", "PING" }, { "stab", "ESTABILIDADE" },
-		{ "region", "SERVIDOR" }, { "players", "JOGADORES" }, { "mem", "MEMÓRIA" },
+		{ "plat", "PLATAFORMA" }, { "input", "CONTROLE" }, { "screen", "TELA" },
+		{ "fps", "FPS" }, { "gfx", "GRÁFICOS" }, { "mem", "MEMÓRIA" },
 	}
 	local statL = {}
 	for k, st in ipairs(STATS) do
@@ -6987,7 +7103,7 @@ Ext.run(function()
 		statL[st[1]] = text({
 			Text = "—",
 			Font = F.Heavy,
-			TextSize = (st[1] == "region" or st[1] == "stab") and 15 or 20,
+			TextSize = (st[1] == "fps" or st[1] == "mem") and 20 or 15,
 			Position = UDim2.fromOffset(14, 32),
 			Size = UDim2.new(1, -28, 0, 26),
 			TextTruncate = Enum.TextTruncate.AtEnd,
@@ -7056,12 +7172,80 @@ Ext.run(function()
 		end
 	end
 
-	-- amigos (a lista completa fica em Servidor › Amigos)
-	local frCard = Ext.card(body, 4, 68)
-	text({ Text = "AMIGOS", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(18, 16), Size = UDim2.fromOffset(200, 14), Parent = frCard })
-	Ext.homeFriendsLabel = text({ Text = T("Procurando amigos…"), Font = F.Bold, TextSize = 15, Position = UDim2.fromOffset(18, 34), Size = UDim2.new(1, -170, 0, 20), TextTruncate = Enum.TextTruncate.AtEnd, Parent = frCard })
-	Button(frCard, { text = "Ver amigos", style = "tinted", accent = A, size = UDim2.fromOffset(120, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
-		selectTab(G.TI.friends, false)
+	-- aparelho: o que dá para saber da plataforma
+	local function device()
+		local cam = Workspace.CurrentCamera
+		local vp = cam and cam.ViewportSize or Vector2.new(0, 0)
+		local touch = UserInputService.TouchEnabled
+		local pad = UserInputService.GamepadEnabled
+		local kb = UserInputService.KeyboardEnabled
+		local plat
+		local okP, pe = pcall(function()
+			return UserInputService:GetPlatform()
+		end)
+		local pn = okP and pe and pe.Name or nil
+		if pn == "IOS" then
+			plat = math.min(vp.X, vp.Y) >= 700 and "iPad" or "iPhone"
+		elseif pn == "Android" then
+			plat = math.min(vp.X, vp.Y) >= 700 and "Tablet Android" or "Celular Android"
+		elseif pn == "XBoxOne" or pn == "XBox360" then
+			plat = "Xbox"
+		elseif pn == "PS4" or pn == "PS5" then
+			plat = "PlayStation"
+		elseif pn == "OSX" then
+			plat = "Mac"
+		elseif pn == "Windows" or pn == "UWP" then
+			plat = "PC"
+		elseif touch and not kb then
+			plat = math.min(vp.X, vp.Y) >= 700 and "Tablet" or "Celular"
+		elseif pad and not kb then
+			plat = "Console"
+		else
+			plat = "PC"
+		end
+		local input = (touch and not kb) and "Toque" or (pad and not kb and "Controle" or (touch and "Toque + teclado" or "Teclado e mouse"))
+		return plat, input, vp
+	end
+	Ext.device = device
+	local PLAT = device()
+	local mobile = Env.touch
+
+	-- dica para este aparelho
+	local tipCard = Ext.card(body, 4, 84)
+	tipCard.BackgroundColor3 = C.Surface:Lerp(A, 0.05)
+	local tipK = text({ Text = "", Font = F.Bold, TextSize = 11, TextColor3 = A, Position = UDim2.fromOffset(18, 16), Size = UDim2.new(1, -180, 0, 14), Parent = tipCard })
+	local tipL = text({ Text = "", TextSize = 12, TextColor3 = C.Sub, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, Position = UDim2.fromOffset(18, 34), Size = UDim2.new(1, -180, 0, 40), Parent = tipCard })
+	local tipBtn = Button(tipCard, { text = "Aplicar", style = "filled", accent = A, size = UDim2.fromOffset(130, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) })
+	local tipPreset
+	local function refreshTip()
+		local fps = G.fpsValue or 60
+		local okm, mem = pcall(function()
+			return Stats:GetTotalMemoryUsageMb()
+		end)
+		mem = okm and mem or 0
+		local want
+		if mobile then
+			want = (fps < 30 or mem > 2600) and "extreme" or (fps < 45 and "high" or "medium")
+		else
+			want = fps < 40 and "high" or (fps < 75 and "medium" or "soft")
+		end
+		local p
+		for _, pr in ipairs(G.PRESETS) do
+			if pr.id == want then
+				p = pr
+			end
+		end
+		tipPreset = p
+		tipK.Text = T(mobile and "RECOMENDADO PARA O SEU CELULAR" or "RECOMENDADO PARA O SEU PC")
+		local why = mobile and (fps < 45 and T("O FPS está baixo para um celular.") or T("O celular está aguentando bem.")) or (fps < 75 and T("Dá para ganhar FPS no seu PC.") or T("Seu PC está sobrando."))
+		tipL.Text = why .. " " .. T("Sugestão") .. ": " .. (p and p.name or "—") .. (State.preset and State.preset.id == want and (" · " .. T("já está ligado")) or "")
+		tipBtn.Visible = p ~= nil and not (State.preset and State.preset.id == want)
+	end
+	tipBtn.Activated:Connect(function()
+		if tipPreset then
+			applyPreset(tipPreset)
+			refreshTip()
+		end
 	end)
 
 	-- rodapé
@@ -7078,14 +7262,19 @@ Ext.run(function()
 		local fps = math.floor(G.fpsValue + 0.5)
 		statL.fps.Text = tostring(fps)
 		statL.fps.TextColor3 = fpsColor(fps)
-		local ping = getPing()
-		statL.ping.Text = ping and (math.floor(ping + 0.5) .. " ms") or "—"
-		statL.ping.TextColor3 = ping and (ping <= 80 and C.Good or (ping <= 150 and C.Gold or C.Warn)) or C.Dim
-		local st, sc = Ext.stability()
-		statL.stab.Text, statL.stab.TextColor3 = st, sc
-		local rt, rc = serverEstimate(ping)
-		statL.region.Text, statL.region.TextColor3 = rt, rc
-		statL.players.Text = #Players:GetPlayers() .. "/" .. Players.MaxPlayers
+		local _, inp, vp = device()
+		statL.plat.Text = T(PLAT)
+		statL.input.Text = T(inp)
+		statL.screen.Text = math.floor(vp.X) .. "×" .. math.floor(vp.Y) .. " · " .. T(vp.X >= vp.Y and "deitado" or "em pé")
+		local okq, q = pcall(function()
+			return UserSettings():GetService("UserGameSettings").SavedQualityLevel
+		end)
+		local qn = okq and q and tostring(q.Name) or nil
+		statL.gfx.Text = (qn == nil and "—") or (qn == "Automatic" and T("Automático")) or (T("Nível") .. " " .. (qn:match("%d+") or qn))
+		if os.clock() - (Ext.tipAt or -10) > 5 then
+			Ext.tipAt = os.clock()
+			refreshTip()
+		end
 		local okm, mem = pcall(function()
 			return Stats:GetTotalMemoryUsageMb()
 		end)
@@ -7112,7 +7301,7 @@ Ext.run(function()
 	local A = tab.accent
 	local STATUS = {
 		[0] = "No app do Roblox", [1] = "Jogando", [2] = "No site", [3] = "No Studio",
-		[4] = "Jogando", [5] = "No Xbox", [6] = "No Team Create",
+		[4] = "Jogando", [5] = "No Xbox", [6] = "No Team Create", [-1] = "Online",
 	}
 
 	-- resumo + convidar
@@ -7123,13 +7312,25 @@ Ext.run(function()
 	local subL = text({ Text = "", TextSize = 12, TextColor3 = C.Sub, Position = UDim2.fromOffset(18, 62), Size = UDim2.new(1, -200, 0, 16), TextTruncate = Enum.TextTruncate.AtEnd, Parent = top })
 	local invite = Button(top, { text = "Convidar amigos", style = "filled", accent = A, size = UDim2.fromOffset(160, 34), anchor = Vector2.new(1, 0), position = UDim2.new(1, -16, 0, 14) })
 	local refresh = Button(top, { text = "Atualizar", style = "ghost", size = UDim2.fromOffset(160, 30), anchor = Vector2.new(1, 1), position = UDim2.new(1, -16, 1, -14), textSize = 12 })
-	invite.Activated:Connect(function()
-		local ok = pcall(function()
-			game:GetService("SocialService"):PromptGameInvite(LocalPlayer)
+	-- convite: o Roblox sempre mostra a própria confirmação (não existe convite silencioso);
+	-- com um amigo escolhido vai direto para ele, sem lista para procurar
+	local function inviteUser(userId)
+		local ok, err = pcall(function()
+			local SocialService = game:GetService("SocialService")
+			if userId then
+				local opts = Instance.new("ExperienceInviteOptions")
+				opts.InviteUser = userId
+				SocialService:PromptGameInvite(LocalPlayer, opts)
+			else
+				SocialService:PromptGameInvite(LocalPlayer)
+			end
 		end)
 		if not ok then
-			toast("Este jogo não permite convites", C.Warn)
+			toast(T("Este jogo não permite convites") .. " (" .. tostring(err):gsub("^.-:%d+: ", "") .. ")", C.Warn)
 		end
+	end
+	invite.Activated:Connect(function()
+		inviteUser(nil)
 	end)
 
 	Section(body, 2, "JOGANDO AGORA", A)
@@ -7180,9 +7381,21 @@ Ext.run(function()
 					return
 				end
 				toast(T("Entrando no servidor de") .. " " .. display .. "…", A)
-				pcall(function()
-					TeleportService:TeleportToPlaceInstance(f.PlaceId, f.GameId, LocalPlayer)
-				end)
+				if Ext.teleport then
+					Ext.teleport(f.PlaceId, f.GameId)
+				end
+			end)
+		else
+			Button(row, {
+				text = "Convidar",
+				style = "tinted",
+				accent = A,
+				size = UDim2.fromOffset(100, 34),
+				anchor = Vector2.new(1, 0.5),
+				position = UDim2.new(1, -12, 0.5, 0),
+				textSize = 12,
+			}).Activated:Connect(function()
+				inviteUser(f.VisitorId)
 			end)
 		end
 		task.spawn(function()
@@ -7216,6 +7429,29 @@ Ext.run(function()
 				empty(playingList, T("Não foi possível carregar os amigos"))
 				return
 			end
+			-- GetFriendsOnline às vezes só traz quem está no mesmo jogo:
+			-- completa com a lista de amigos (IsOnline) para mostrar quem está em outras experiências
+			local seen = {}
+			for _, f in ipairs(friends) do
+				if f.VisitorId then
+					seen[f.VisitorId] = true
+				end
+			end
+			pcall(function()
+				local pages = Players:GetFriendsAsync(LocalPlayer.UserId)
+				for _ = 1, 10 do
+					for _, it in ipairs(pages:GetCurrentPage()) do
+						if it.IsOnline and it.Id and not seen[it.Id] then
+							seen[it.Id] = true
+							friends[#friends + 1] = { VisitorId = it.Id, UserName = it.Username, DisplayName = it.DisplayName, LocationType = -1 }
+						end
+					end
+					if pages.IsFinished then
+						break
+					end
+					pages:AdvanceToNextPageAsync()
+				end
+			end)
 			local nPlay, nOn = 0, 0
 			for _, f in ipairs(friends) do
 				local inGame = (f.LocationType == 4 or f.LocationType == 1) and f.PlaceId ~= nil
@@ -7318,7 +7554,7 @@ Ext.run(function()
 	if (Ext.hidden["G.NETWORK_OPTIONS"] or 0) > 0 then
 		text({
 			LayoutOrder = nextOrder(),
-			Text = Ext.hidden["G.NETWORK_OPTIONS"] .. " " .. T("opções escondidas: seu executor não tem as funções que elas precisam (veja Configurações › Compatibilidade)"),
+			Text = Ext.hidden["G.NETWORK_OPTIONS"] .. " " .. T("opções escondidas: não funcionam no seu executor ou nesta versão do Roblox"),
 			TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
 		})
 	end
@@ -7371,9 +7607,81 @@ Ext.run(function()
 	local tab, body = TABS[G.TI.server], G.Bodies[G.TI.server]
 	local A = tab.accent
 
-	track(TeleportService.TeleportInitFailed:Connect(function(plr, _, msg)
-		if plr == LocalPlayer then
-			toast(T("Não deu para entrar") .. ": " .. tostring(msg), C.Warn)
+	-- GET que funciona em mais executores: request/http_request primeiro, depois HttpGet
+	local REQ = asFn(request, "request") or asFn(http_request, "http_request")
+	pcall(function()
+		REQ = REQ or (type(syn) == "table" and asFn(syn.request)) or (type(fluxus) == "table" and asFn(fluxus.request))
+	end)
+	local function httpGet(url)
+		local lastErr = "sem resposta"
+		if REQ then
+			local ok, res = pcall(REQ, { Url = url, Method = "GET", Headers = { ["Accept"] = "application/json" } })
+			if ok and type(res) == "table" and type(res.Body) == "string" and res.Body ~= "" then
+				if (res.StatusCode or 200) == 429 then
+					lastErr = "muitas buscas, espere alguns segundos"
+				else
+					return res.Body
+				end
+			elseif not ok then
+				lastErr = tostring(res)
+			end
+		end
+		for _, m in ipairs({ "HttpGet", "HttpGetAsync" }) do
+			local ok, res = pcall(function()
+				return game[m](game, url)
+			end)
+			if ok and type(res) == "string" and res ~= "" then
+				return res
+			elseif not ok then
+				lastErr = tostring(res)
+			end
+		end
+		return nil, (tostring(lastErr):gsub("^.-:%d+: ", ""))
+	end
+	Ext.httpGet = httpGet
+
+	-- teleporte com motivo visível e plano B
+	local pendingFallback
+	local function teleport(placeId, jobId)
+		pcall(function()
+			local q = asFn(queue_on_teleport, "queue_on_teleport") or (type(syn) == "table" and asFn(syn.queue_on_teleport))
+			if q then
+				q('loadstring(game:HttpGet("' .. G.UPDATE_URL .. '"))()')
+			end
+		end)
+		local ok, err
+		if jobId then
+			pendingFallback = placeId == game.PlaceId and placeId or nil
+			ok, err = pcall(function()
+				TeleportService:TeleportToPlaceInstance(placeId, jobId, LocalPlayer)
+			end)
+		end
+		if not jobId or not ok then
+			ok, err = pcall(function()
+				TeleportService:Teleport(placeId, LocalPlayer)
+			end)
+		end
+		if not ok then
+			toast(T("Não deu para entrar") .. ": " .. tostring(err):gsub("^.-:%d+: ", ""), C.Warn)
+		end
+		return ok
+	end
+	Ext.teleport = teleport
+
+	track(TeleportService.TeleportInitFailed:Connect(function(plr, result, msg)
+		if plr ~= LocalPlayer then
+			return
+		end
+		toast(T("Não deu para entrar") .. ": " .. tostring(msg ~= "" and msg or result), C.Warn)
+		-- servidor cheio/fechado: tenta um servidor qualquer do mesmo jogo
+		if pendingFallback then
+			local pid = pendingFallback
+			pendingFallback = nil
+			task.delay(1.5, function()
+				pcall(function()
+					TeleportService:Teleport(pid, LocalPlayer)
+				end)
+			end)
 		end
 	end))
 
@@ -7402,19 +7710,23 @@ Ext.run(function()
 		local all = {}
 		local cursor = nil
 		for _ = 1, 3 do
-			local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
+			local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&excludeFullGames=true&limit=100"
 			if cursor then
 				url ..= "&cursor=" .. cursor
 			end
-			local ok, bodyText = pcall(function()
-				return game:HttpGet(url)
-			end)
-			if not ok then
-				return nil, T("Precisa de executor (HttpGet)")
+			local bodyText, herr = httpGet(url)
+			if not bodyText then
+				if #all > 0 then
+					break
+				end
+				return nil, T("Não consegui falar com o Roblox") .. " (" .. tostring(herr) .. ")"
 			end
 			local ok2, data = pcall(function()
 				return HttpService:JSONDecode(bodyText)
 			end)
+			if ok2 and type(data) == "table" and type(data.errors) == "table" and data.errors[1] and #all == 0 then
+				return nil, T("O Roblox recusou a busca") .. ": " .. tostring(data.errors[1].message or "?")
+			end
 			if not ok2 or type(data) ~= "table" or type(data.data) ~= "table" then
 				break
 			end
@@ -7434,9 +7746,7 @@ Ext.run(function()
 	local resultsCard, resultsList, resultsEmpty
 	local function join(sv)
 		toast(T("Entrando no servidor…"), A)
-		pcall(function()
-			TeleportService:TeleportToPlaceInstance(game.PlaceId, sv.id, LocalPlayer)
-		end)
+		teleport(game.PlaceId, sv.id)
 	end
 	local function showResults(title, servers)
 		for _, c in ipairs(resultsList:GetChildren()) do
@@ -7479,6 +7789,11 @@ Ext.run(function()
 				toast(err or T("Não foi possível listar os servidores"), C.Warn)
 				return
 			end
+			if #servers == 0 then
+				showResults(kind == "ping" and "SERVIDORES COM MENOR PING" or "SERVIDORES MAIS VAZIOS", servers)
+				toast(T("Nenhum outro servidor com vaga agora"), C.Sub)
+				return
+			end
 			if kind == "ping" then
 				table.sort(servers, function(a, b)
 					return (a.ping or 9999) < (b.ping or 9999)
@@ -7508,13 +7823,11 @@ Ext.run(function()
 	local TILES = {
 		{ "Reentrar", "Volta para este mesmo servidor", function()
 			toast(T("Reentrando…"), A)
-			pcall(function()
-				if #Players:GetPlayers() <= 1 then
-					TeleportService:Teleport(game.PlaceId, LocalPlayer)
-				else
-					TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-				end
-			end)
+			if #Players:GetPlayers() <= 1 or game.JobId == "" then
+				teleport(game.PlaceId, nil)
+			else
+				teleport(game.PlaceId, game.JobId)
+			end
 		end },
 		{ "Menor ping", "Procura o servidor mais rápido para você", function()
 			search("ping")
@@ -7571,7 +7884,7 @@ Ext.run(function()
 
 	text({
 		LayoutOrder = 4,
-		Text = "A lista de servidores vem do próprio Roblox e precisa de executor (HttpGet). O ping de cada servidor é uma estimativa.",
+		Text = "A lista de servidores vem do próprio Roblox. O ping de cada servidor é uma estimativa. Ao trocar de servidor o painel abre sozinho de novo quando o executor permite.",
 		TextSize = 11, TextColor3 = C.Dim, TextWrapped = true, Size = UDim2.new(1, 0, 0, 30), Parent = body,
 	})
 
@@ -8458,14 +8771,24 @@ CloseBtn.Activated:Connect(function()
 	setOpen(false)
 end)
 
-local function snapFab()
+local function snapFab(instant)
 	local vp = viewportSize()
-	local rel = Fab.AbsolutePosition - Gui.AbsolutePosition
-	local size = Fab.AbsoluteSize
-	local x = (rel.X + size.X / 2) < vp.X / 2 and 14 or (vp.X - size.X - 14)
-	local y = math.clamp(rel.Y, G.TopInset + 8, math.max(G.TopInset + 8, vp.Y - size.Y - 14))
-	tween(Fab, 0.5, { Position = UDim2.fromOffset(x, y) }, EASE.Back)
+	local sz = G.FAB_SIZES and G.FAB_SIZES[Prefs.fabSize] or Fab.Size.X.Offset
+	local p = Fab.Position
+	local px = p.X.Scale * vp.X + p.X.Offset
+	local py = p.Y.Scale * vp.Y + p.Y.Offset
+	local x = (px + sz / 2) < vp.X / 2 and 14 or (vp.X - sz - 14)
+	local y = math.clamp(py, G.TopInset + 8, math.max(G.TopInset + 8, vp.Y - sz - 14))
+	if instant then
+		Fab.Position = UDim2.fromOffset(x, y)
+	else
+		tween(Fab, 0.5, { Position = UDim2.fromOffset(x, y) }, EASE.Back)
+	end
 end
+-- tela girou / mudou de tamanho: o botão volta para dentro
+track(Gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	task.defer(snapFab, true)
+end))
 
 -- círculo que enche enquanto você segura o botão (print limpa)
 FabUI.charge = make("Frame", {
@@ -8503,8 +8826,16 @@ end
 
 local fabHold = { token = 0, fired = false }
 G.FabBtn.InputBegan:Connect(function(i)
-	if not isPress(i) then
+	if not isPress(i) or i.UserInputState ~= Enum.UserInputState.Begin then
 		return
+	end
+	if i.UserInputType == Enum.UserInputType.Touch then
+		task.defer(function()
+			-- dedo que só passou por cima não conta
+			if not startedInside(G.FabBtn, i) then
+				fabHold.token += 1
+			end
+		end)
 	end
 	fabHold.token += 1
 	local my = fabHold.token
@@ -8784,6 +9115,7 @@ Ext.run(function()
 			scheduleSave()
 		end,
 	}, A, 16)
+	keyRow.frame.Visible = not Env.touch -- no celular não existe teclado
 
 	Section(body, nextOrder(), "COMPATIBILIDADE", A)
 	local function infoRow(title, desc, ok, label)
@@ -9196,6 +9528,14 @@ end
 -- NOVIDADES -------------------------------------------------------------------
 Ext.run(function()
 	local CHANGELOG = {
+		{ v = "6.6", items = {
+			"Botão flutuante sempre dentro da tela e sem o X pequeno: o botão abre e fecha",
+			"Arrastar a câmera por cima do HUD ou do botão não puxa mais eles junto",
+			"FFlags que não existem na sua versão do Roblox não aparecem mais",
+			"Servidor: reentrar, mais vazio e menor ping com mais compatibilidade e motivo do erro",
+			"Amigos online em qualquer experiência e convite direto para um amigo",
+			"Home nova com informações do seu aparelho e preset recomendado",
+		} },
 		{ v = "6.5.1", items = {
 			"Opções que seu executor não suporta ficam escondidas (sem lista cheia de Indisponível)",
 			"Quando algo falha, mostra o motivo real e gera um relatório em Configurações",
