@@ -1,12 +1,14 @@
--- KS NEXUS | MM2 Role ESP + Sheriff Silent Aim
+-- KS NEXUS | MM2 Role ESP + Gun ESP + Sheriff Silent Aim (v2)
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local Stats = game:GetService("Stats")
+local Workspace = game:GetService("Workspace")
 
 local CONFIG = {
 	MurderTool = "Knife",
 	SheriffTool = "Gun",
+	DroppedGunName = "GunDrop", -- nome da arma dropada (não verificado na build atual)
 
 	Colors = {
 		Murder   = Color3.fromRGB(255, 128, 128),
@@ -17,27 +19,38 @@ local CONFIG = {
 	OutlineTransparency = 0.35,
 	RefreshInterval     = 0.5,
 
+	-- ESP da arma dropada
+	GunEsp          = true,
+	GunColor        = Color3.fromRGB(170, 60, 255),  -- violeta forte
+	GunLabelColor   = Color3.fromRGB(215, 150, 255),
+	GunFillTransp   = 0.45,
+	GunOutlineTransp = 0.05,
+	GunLabel        = "ARMA",
+
 	-- Silent aim
 	SilentAim       = true,
 	AimPart         = "HumanoidRootPart",
-	Prediction      = true,  -- compensa o ping com a velocidade do murder
-	PredictionScale = 1.0,   -- multiplicador do tempo de ping (não calibrado)
-	MaxPredictSpeed = 60,    -- limite de velocidade usada na previsão (studs/s)
-	Debug           = false, -- imprime o remote interceptado e os argumentos
+	Prediction      = true,
+	PredictionScale = 1.0,   -- não calibrado
+	MaxPredictSpeed = 60,
+	Debug           = false, -- true: imprime remotes da arma e o argumento trocado
 
 	-- Botão de tiro
-	ShootButton    = true,
-	ButtonSize     = 44,
-	ButtonPosition = UDim2.new(1, -90, 1, -190),
-	ButtonBgTransp = 0.85,
-	ButtonTxtTransp = 0.6,
-	ShootDebounce  = 0.25,
+	ShootButton     = true,
+	ButtonSize      = 90,
+	ButtonPosition  = UDim2.new(1, -135, 1, -270),
+	ButtonBgTransp  = 0.82,
+	ButtonTxtTransp = 0.45,
+	ShootDebounce   = 0.25,
 }
+
+local HOOK_VERSION = 2
 
 local env = (getgenv and getgenv()) or _G
 if env.KS_MM2_ESP then
 	pcall(env.KS_MM2_ESP.Destroy)
 end
+env.KS_MM2_ResolveAim = nil -- deixa inerte o hook da versão 1, se existir
 
 local localPlayer = Players.LocalPlayer
 
@@ -53,6 +66,7 @@ folder.Name = "KS_MM2_ESP"
 safeParent(folder)
 
 local entries = {}
+local gunEntries = {}
 local globalConns = {}
 local running = true
 
@@ -86,7 +100,7 @@ local function aliveHumanoid(player)
 	return nil
 end
 
----------------------------------------------------------------- ESP
+---------------------------------------------------------------- ESP de jogadores
 local function refresh(player)
 	local e = entries[player]
 	if not e then return end
@@ -162,6 +176,112 @@ local function removePlayer(player)
 	e.highlight:Destroy()
 end
 
+---------------------------------------------------------------- ESP da arma dropada
+local function isUnderCharacter(inst)
+	local a = inst.Parent
+	while a and a ~= Workspace do
+		if a:IsA("Model") and Players:GetPlayerFromCharacter(a) then return true end
+		a = a.Parent
+	end
+	return false
+end
+
+local function isDroppedGun(inst)
+	if not (inst:IsA("BasePart") or inst:IsA("Model") or inst:IsA("Tool")) then return false end
+	local byName = inst.Name == CONFIG.DroppedGunName
+	local looseTool = inst:IsA("Tool") and inst.Name == CONFIG.SheriffTool and inst.Parent == Workspace
+	if not (byName or looseTool) then return false end
+	return not isUnderCharacter(inst)
+end
+
+local function gunPart(inst)
+	if inst:IsA("BasePart") then return inst end
+	if inst:IsA("Tool") then
+		return inst:FindFirstChild("Handle") or inst:FindFirstChildWhichIsA("BasePart", true)
+	end
+	if inst:IsA("Model") then
+		return inst.PrimaryPart or inst:FindFirstChildWhichIsA("BasePart", true)
+	end
+	return nil
+end
+
+local function removeGun(inst)
+	local e = gunEntries[inst]
+	if not e then return end
+	gunEntries[inst] = nil
+	clear(e.conns)
+	e.highlight:Destroy()
+	e.billboard:Destroy()
+end
+
+local function hasTrackedAncestor(inst)
+	local a = inst.Parent
+	while a and a ~= Workspace do
+		if gunEntries[a] then return true end
+		a = a.Parent
+	end
+	return false
+end
+
+local function addGun(inst)
+	if gunEntries[inst] or hasTrackedAncestor(inst) then return end
+
+	local hl = Instance.new("Highlight")
+	hl.Name = "Gun"
+	hl.Adornee = inst
+	hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hl.FillColor = CONFIG.GunColor
+	hl.OutlineColor = CONFIG.GunColor
+	hl.FillTransparency = CONFIG.GunFillTransp
+	hl.OutlineTransparency = CONFIG.GunOutlineTransp
+	hl.Parent = folder
+
+	local bb = Instance.new("BillboardGui")
+	bb.Name = "GunLabel"
+	bb.AlwaysOnTop = true
+	bb.Size = UDim2.fromOffset(100, 28)
+	bb.StudsOffset = Vector3.new(0, 2.5, 0)
+	bb.LightInfluence = 0
+	bb.MaxDistance = math.huge
+	bb.Enabled = false
+	bb.Parent = folder
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = CONFIG.GunLabel
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 18
+	label.TextColor3 = CONFIG.GunLabelColor
+	label.TextStrokeColor3 = Color3.fromRGB(40, 0, 70)
+	label.TextStrokeTransparency = 0.2
+	label.Parent = bb
+
+	local e = { highlight = hl, billboard = bb, conns = {} }
+	gunEntries[inst] = e
+
+	table.insert(e.conns, inst.AncestryChanged:Connect(function()
+		if not inst:IsDescendantOf(Workspace) or isUnderCharacter(inst) then
+			removeGun(inst)
+		end
+	end))
+
+	if CONFIG.Debug then warn("[KS] arma dropada detectada:", inst:GetFullName()) end
+
+	task.spawn(function()
+		local t0 = os.clock()
+		local part
+		repeat
+			part = gunPart(inst)
+			if not part then task.wait(0.1) end
+		until part or os.clock() - t0 > 3 or gunEntries[inst] ~= e
+		if part and gunEntries[inst] == e then
+			bb.Adornee = part
+			bb.Enabled = true
+		end
+	end)
+end
+
 ---------------------------------------------------------------- Silent aim
 local function getPingSeconds()
 	local ok, ms = pcall(function()
@@ -201,49 +321,67 @@ local function murdererAimPoint()
 	return pos
 end
 
--- Retorna a posição do murder se o remote chamado pertence à Gun do local player.
-local function resolveAim(remote)
+-- Entre vários Vector3, escolhe o mais distante do seu personagem (a origem do tiro fica perto de você).
+local function pickAimIndex(args)
+	local myChar = localPlayer.Character
+	local root = myChar and myChar:FindFirstChild("HumanoidRootPart")
+	local bestIdx, bestDist
+	for i = 1, args.n do
+		if typeof(args[i]) == "Vector3" then
+			local d = root and (args[i] - root.Position).Magnitude or 0
+			if not bestIdx or d > bestDist then bestIdx, bestDist = i, d end
+		end
+	end
+	return bestIdx
+end
+
+-- Recebe o remote e os argumentos empacotados; devolve os argumentos novos ou nil (= não mexe).
+local function handler(remote, args)
 	if not running or not CONFIG.SilentAim then return nil end
+	if typeof(remote) ~= "Instance" then return nil end
 	local gun = findTool(localPlayer, CONFIG.SheriffTool)
 	if not gun or not remote:IsDescendantOf(gun) then return nil end
-	return murdererAimPoint()
+
+	local idx = pickAimIndex(args)
+	if CONFIG.Debug then
+		local types = {}
+		for i = 1, args.n do types[i] = typeof(args[i]) end
+		warn("[KS] remote da arma:", remote:GetFullName(), "args:", table.concat(types, ", "),
+			"vector escolhido:", idx)
+	end
+	if not idx then return nil end
+
+	local aim = murdererAimPoint()
+	if not aim then return nil end
+
+	local out = table.pack(table.unpack(args, 1, args.n))
+	out[idx] = aim
+	return out
 end
-env.KS_MM2_ResolveAim = resolveAim
+env.KS_MM2_Handler = handler
 
 local hookOk = false
-if not env.KS_MM2_Hooked then
-	if hookmetamethod and getnamecallmethod and newcclosure and checkcaller then
-		local old
-		old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-			local method = getnamecallmethod()
-			if (method == "InvokeServer" or method == "FireServer") and not checkcaller() then
-				local resolver = env.KS_MM2_ResolveAim
-				if resolver then
-					local okR, aim = pcall(resolver, self)
-					if okR and aim then
-						local args = table.pack(...)
-						for i = 1, args.n do
-							if typeof(args[i]) == "Vector3" then
-								args[i] = aim
-								if CONFIG.Debug then
-									warn("[KS] silent aim:", self:GetFullName(), method, "arg", i, aim)
-								end
-								break
-							end
-						end
-						return old(self, table.unpack(args, 1, args.n))
-					end
+if env.KS_MM2_HookVersion == HOOK_VERSION then
+	hookOk = true -- hook v2 já instalado; ele lê o handler novo
+elseif hookmetamethod and getnamecallmethod and newcclosure and checkcaller then
+	local old
+	old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+		local method = getnamecallmethod()
+		if method == "InvokeServer" or method == "FireServer" then
+			local h = env.KS_MM2_Handler
+			if h and not checkcaller() then
+				local okH, newArgs = pcall(h, self, table.pack(...))
+				if okH and newArgs then
+					return old(self, table.unpack(newArgs, 1, newArgs.n))
 				end
 			end
-			return old(self, ...)
-		end))
-		env.KS_MM2_Hooked = true
-		hookOk = true
-	else
-		warn("[KS] Seu executor não expõe hookmetamethod/newcclosure/checkcaller: silent aim desativado, ESP continua.")
-	end
+		end
+		return old(self, ...)
+	end))
+	env.KS_MM2_HookVersion = HOOK_VERSION
+	hookOk = true
 else
-	hookOk = true -- hook já instalado numa execução anterior; ele lê o resolvedor novo
+	warn("[KS] Seu executor não expõe hookmetamethod/newcclosure/checkcaller: silent aim desativado, ESP continua.")
 end
 
 ---------------------------------------------------------------- Botão de tiro
@@ -254,12 +392,14 @@ local function shoot()
 	if not running or os.clock() - lastShot < CONFIG.ShootDebounce then return end
 	local gun = findTool(localPlayer, CONFIG.SheriffTool)
 	if not gun or not findMurderer() then return end
-	lastShot = os.clock()
-	local hum = aliveHumanoid(localPlayer)
+	local hum, char = aliveHumanoid(localPlayer)
 	if not hum then return end
-	if gun.Parent ~= localPlayer.Character then
+	lastShot = os.clock()
+	if gun.Parent ~= char then
 		hum:EquipTool(gun)
-		task.wait(0.05)
+		local t0 = os.clock()
+		while gun.Parent ~= char and os.clock() - t0 < 0.4 do task.wait() end
+		if gun.Parent ~= char then return end
 	end
 	gun:Activate()
 end
@@ -269,6 +409,7 @@ if CONFIG.ShootButton then
 	gui.Name = "KS_MM2_Shoot"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 100
 	safeParent(gui)
 
 	button = Instance.new("TextButton")
@@ -279,8 +420,9 @@ if CONFIG.ShootButton then
 	button.Text = "◎"
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.TextTransparency = CONFIG.ButtonTxtTransp
-	button.TextSize = 22
+	button.TextSize = math.floor(CONFIG.ButtonSize * 0.5)
 	button.AutoButtonColor = false
+	button.Active = true
 	button.Visible = false
 	button.Parent = gui
 	Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
@@ -298,7 +440,7 @@ if CONFIG.ShootButton then
 		if dragging and (input.UserInputType == Enum.UserInputType.Touch
 			or input.UserInputType == Enum.UserInputType.MouseMovement) then
 			local d = input.Position - dragStart
-			if d.Magnitude > 8 then moved = true end
+			if d.Magnitude > 10 then moved = true end
 			if moved then
 				button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
 					startPos.Y.Scale, startPos.Y.Offset + d.Y)
@@ -319,10 +461,28 @@ table.insert(globalConns, Players.PlayerAdded:Connect(addPlayer))
 table.insert(globalConns, Players.PlayerRemoving:Connect(removePlayer))
 for _, p in ipairs(Players:GetPlayers()) do addPlayer(p) end
 
+if CONFIG.GunEsp then
+	table.insert(globalConns, Workspace.DescendantAdded:Connect(function(d)
+		local n = d.Name
+		if (n == CONFIG.DroppedGunName or n == CONFIG.SheriffTool) and isDroppedGun(d) then
+			addGun(d)
+		end
+	end))
+	for _, d in ipairs(Workspace:GetDescendants()) do
+		local n = d.Name
+		if (n == CONFIG.DroppedGunName or n == CONFIG.SheriffTool) and isDroppedGun(d) then
+			addGun(d)
+		end
+	end
+end
+
 task.spawn(function()
 	while running do
 		task.wait(CONFIG.RefreshInterval)
 		for player in pairs(entries) do refresh(player) end
+		for inst in pairs(gunEntries) do
+			if not inst.Parent then removeGun(inst) end
+		end
 		if button then
 			button.Visible = hookOk and findTool(localPlayer, CONFIG.SheriffTool) ~= nil
 				and aliveHumanoid(localPlayer) ~= nil
@@ -333,9 +493,10 @@ end)
 env.KS_MM2_ESP = {
 	Destroy = function()
 		running = false
-		env.KS_MM2_ResolveAim = nil -- o hook continua instalado, mas passa tudo direto
+		env.KS_MM2_Handler = nil -- o hook continua instalado, mas repassa tudo sem alterar
 		clear(globalConns)
 		for player in pairs(entries) do removePlayer(player) end
+		for inst in pairs(gunEntries) do removeGun(inst) end
 		folder:Destroy()
 		if gui then gui:Destroy() end
 		env.KS_MM2_ESP = nil
