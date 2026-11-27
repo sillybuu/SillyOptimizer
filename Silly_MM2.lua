@@ -1,8 +1,8 @@
--- KS NEXUS | MM2 Role ESP + Gun ESP + Sheriff Silent Aim (v2)
+-- Silly | MM2 Role ESP + Gun ESP + Speed 20 + Infinite Jump (taps) (v3)
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
-local Stats = game:GetService("Stats")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local CONFIG = {
@@ -16,41 +16,32 @@ local CONFIG = {
 		Survivor = Color3.fromRGB(255, 236, 140),
 	},
 	FillTransparency    = 0.80,
-	OutlineTransparency = 0.35,
+	OutlineTransparency = 0.45,
 	RefreshInterval     = 0.5,
 
 	-- ESP da arma dropada
-	GunEsp          = true,
-	GunColor        = Color3.fromRGB(170, 60, 255),  -- violeta forte
-	GunLabelColor   = Color3.fromRGB(215, 150, 255),
-	GunFillTransp   = 0.45,
-	GunOutlineTransp = 0.05,
-	GunLabel        = "ARMA",
+	GunEsp           = true,
+	GunColor         = Color3.fromRGB(170, 60, 255),
+	GunLabelColor    = Color3.fromRGB(215, 150, 255),
+	GunFillTransp    = 0.45,
+	GunOutlineTransp = 0.25,
+	GunLabel         = "ARMA",
 
-	-- Silent aim
-	SilentAim       = true,
-	AimPart         = "HumanoidRootPart",
-	Prediction      = true,
-	PredictionScale = 1.0,   -- não calibrado
-	MaxPredictSpeed = 60,
-	Debug           = false, -- true: imprime remotes da arma e o argumento trocado
+	-- Movimento
+	LockWalkSpeed = true,
+	WalkSpeed     = 20,
+	InfiniteJump  = true, -- só funciona com toques separados; segurar não repete
 
-	-- Botão de tiro
-	ShootButton     = true,
-	ButtonSize      = 90,
-	ButtonPosition  = UDim2.new(1, -135, 1, -270),
-	ButtonBgTransp  = 0.82,
-	ButtonTxtTransp = 0.45,
-	ShootDebounce   = 0.25,
+	Debug = false,
 }
-
-local HOOK_VERSION = 2
 
 local env = (getgenv and getgenv()) or _G
 if env.KS_MM2_ESP then
 	pcall(env.KS_MM2_ESP.Destroy)
 end
-env.KS_MM2_ResolveAim = nil -- deixa inerte o hook da versão 1, se existir
+-- deixa inertes os hooks das versões antigas, se existirem
+env.KS_MM2_Handler = nil
+env.KS_MM2_ResolveAim = nil
 
 local localPlayer = Players.LocalPlayer
 
@@ -282,178 +273,66 @@ local function addGun(inst)
 	end)
 end
 
----------------------------------------------------------------- Silent aim
-local function getPingSeconds()
-	local ok, ms = pcall(function()
-		return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
-	end)
-	if ok and type(ms) == "number" and ms == ms and ms >= 0 and ms < 2000 then
-		return ms / 1000
-	end
-	return 0
-end
-
-local function findMurderer()
-	for _, p in ipairs(Players:GetPlayers()) do
-		if p ~= localPlayer and findTool(p, CONFIG.MurderTool) then
-			local hum, char = aliveHumanoid(p)
-			if hum then return p, char end
+---------------------------------------------------------------- Velocidade travada
+if CONFIG.LockWalkSpeed then
+	table.insert(globalConns, RunService.Heartbeat:Connect(function()
+		local char = localPlayer.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if hum and hum.Health > 0 and hum.WalkSpeed ~= CONFIG.WalkSpeed then
+			hum.WalkSpeed = CONFIG.WalkSpeed
 		end
-	end
-	return nil
-end
-
-local function murdererAimPoint()
-	local _, char = findMurderer()
-	if not char then return nil end
-	local part = char:FindFirstChild(CONFIG.AimPart) or char:FindFirstChild("HumanoidRootPart")
-	if not part then return nil end
-	local pos = part.Position
-	if CONFIG.Prediction then
-		local vel = part.AssemblyLinearVelocity
-		local speed = vel.Magnitude
-		if speed == speed and speed > CONFIG.MaxPredictSpeed then
-			vel = vel.Unit * CONFIG.MaxPredictSpeed
-		end
-		pos = pos + vel * (getPingSeconds() * CONFIG.PredictionScale)
-	end
-	if pos.X ~= pos.X or pos.Y ~= pos.Y or pos.Z ~= pos.Z then return nil end
-	return pos
-end
-
--- Entre vários Vector3, escolhe o mais distante do seu personagem (a origem do tiro fica perto de você).
-local function pickAimIndex(args)
-	local myChar = localPlayer.Character
-	local root = myChar and myChar:FindFirstChild("HumanoidRootPart")
-	local bestIdx, bestDist
-	for i = 1, args.n do
-		if typeof(args[i]) == "Vector3" then
-			local d = root and (args[i] - root.Position).Magnitude or 0
-			if not bestIdx or d > bestDist then bestIdx, bestDist = i, d end
-		end
-	end
-	return bestIdx
-end
-
--- Recebe o remote e os argumentos empacotados; devolve os argumentos novos ou nil (= não mexe).
-local function handler(remote, args)
-	if not running or not CONFIG.SilentAim then return nil end
-	if typeof(remote) ~= "Instance" then return nil end
-	local gun = findTool(localPlayer, CONFIG.SheriffTool)
-	if not gun or not remote:IsDescendantOf(gun) then return nil end
-
-	local idx = pickAimIndex(args)
-	if CONFIG.Debug then
-		local types = {}
-		for i = 1, args.n do types[i] = typeof(args[i]) end
-		warn("[KS] remote da arma:", remote:GetFullName(), "args:", table.concat(types, ", "),
-			"vector escolhido:", idx)
-	end
-	if not idx then return nil end
-
-	local aim = murdererAimPoint()
-	if not aim then return nil end
-
-	local out = table.pack(table.unpack(args, 1, args.n))
-	out[idx] = aim
-	return out
-end
-env.KS_MM2_Handler = handler
-
-local hookOk = false
-if env.KS_MM2_HookVersion == HOOK_VERSION then
-	hookOk = true -- hook v2 já instalado; ele lê o handler novo
-elseif hookmetamethod and getnamecallmethod and newcclosure and checkcaller then
-	local old
-	old = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-		local method = getnamecallmethod()
-		if method == "InvokeServer" or method == "FireServer" then
-			local h = env.KS_MM2_Handler
-			if h and not checkcaller() then
-				local okH, newArgs = pcall(h, self, table.pack(...))
-				if okH and newArgs then
-					return old(self, table.unpack(newArgs, 1, newArgs.n))
-				end
-			end
-		end
-		return old(self, ...)
 	end))
-	env.KS_MM2_HookVersion = HOOK_VERSION
-	hookOk = true
-else
-	warn("[KS] Seu executor não expõe hookmetamethod/newcclosure/checkcaller: silent aim desativado, ESP continua.")
 end
 
----------------------------------------------------------------- Botão de tiro
-local gui, button
-local lastShot = 0
+---------------------------------------------------------------- Infinite jump (só por toques)
+-- "freshPress" vira true a cada novo toque/pressão e é consumido pelo primeiro JumpRequest.
+-- Segurar o botão gera JumpRequests extras, mas sem nova pressão eles são ignorados.
+local freshPress = false
+local touchButton, touchConns = nil, {}
 
-local function shoot()
-	if not running or os.clock() - lastShot < CONFIG.ShootDebounce then return end
-	local gun = findTool(localPlayer, CONFIG.SheriffTool)
-	if not gun or not findMurderer() then return end
-	local hum, char = aliveHumanoid(localPlayer)
-	if not hum then return end
-	lastShot = os.clock()
-	if gun.Parent ~= char then
-		hum:EquipTool(gun)
-		local t0 = os.clock()
-		while gun.Parent ~= char and os.clock() - t0 < 0.4 do task.wait() end
-		if gun.Parent ~= char then return end
-	end
-	gun:Activate()
-end
+local function markPress() freshPress = true end
 
-if CONFIG.ShootButton then
-	gui = Instance.new("ScreenGui")
-	gui.Name = "KS_MM2_Shoot"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	gui.DisplayOrder = 100
-	safeParent(gui)
-
-	button = Instance.new("TextButton")
-	button.Size = UDim2.fromOffset(CONFIG.ButtonSize, CONFIG.ButtonSize)
-	button.Position = CONFIG.ButtonPosition
-	button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	button.BackgroundTransparency = CONFIG.ButtonBgTransp
-	button.Text = "◎"
-	button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	button.TextTransparency = CONFIG.ButtonTxtTransp
-	button.TextSize = math.floor(CONFIG.ButtonSize * 0.5)
-	button.AutoButtonColor = false
-	button.Active = true
-	button.Visible = false
-	button.Parent = gui
-	Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
-
-	-- toque curto atira; arrastar move o botão
-	local dragging, dragStart, startPos, moved = false, nil, nil, false
-	table.insert(globalConns, button.InputBegan:Connect(function(input)
+local function bindTouchJumpButton()
+	if not UserInputService.TouchEnabled then return end
+	if touchButton and touchButton.Parent then return end
+	clear(touchConns)
+	touchButton = nil
+	local pg = localPlayer:FindFirstChildOfClass("PlayerGui")
+	local touchGui = pg and pg:FindFirstChild("TouchGui")
+	local btn = touchGui and touchGui:FindFirstChild("JumpButton", true)
+	if not btn then return end
+	touchButton = btn
+	table.insert(touchConns, btn.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.Touch
 			or input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging, moved = true, false
-			dragStart, startPos = input.Position, button.Position
+			markPress()
 		end
 	end))
-	table.insert(globalConns, UserInputService.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.Touch
-			or input.UserInputType == Enum.UserInputType.MouseMovement) then
-			local d = input.Position - dragStart
-			if d.Magnitude > 10 then moved = true end
-			if moved then
-				button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
-					startPos.Y.Scale, startPos.Y.Offset + d.Y)
-			end
+	if CONFIG.Debug then warn("[KS] botão de pulo do celular encontrado:", btn:GetFullName()) end
+end
+
+if CONFIG.InfiniteJump then
+	table.insert(globalConns, UserInputService.InputBegan:Connect(function(input)
+		if UserInputService:GetFocusedTextBox() then return end
+		if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA then
+			markPress()
 		end
 	end))
-	table.insert(globalConns, UserInputService.InputEnded:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.Touch
-			or input.UserInputType == Enum.UserInputType.MouseButton1) then
-			dragging = false
-			if not moved then task.spawn(shoot) end
+
+	table.insert(globalConns, UserInputService.JumpRequest:Connect(function()
+		if not running then return end
+		local wasFresh = freshPress
+		freshPress = false
+		if not wasFresh then return end
+		local hum = aliveHumanoid(localPlayer)
+		if not hum then return end
+		local state = hum:GetState()
+		if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
+			hum:ChangeState(Enum.HumanoidStateType.Jumping)
 		end
 	end))
+
+	bindTouchJumpButton()
 end
 
 ---------------------------------------------------------------- Loop e ciclo de vida
@@ -483,22 +362,18 @@ task.spawn(function()
 		for inst in pairs(gunEntries) do
 			if not inst.Parent then removeGun(inst) end
 		end
-		if button then
-			button.Visible = hookOk and findTool(localPlayer, CONFIG.SheriffTool) ~= nil
-				and aliveHumanoid(localPlayer) ~= nil
-		end
+		if CONFIG.InfiniteJump then bindTouchJumpButton() end
 	end
 end)
 
 env.KS_MM2_ESP = {
 	Destroy = function()
 		running = false
-		env.KS_MM2_Handler = nil -- o hook continua instalado, mas repassa tudo sem alterar
 		clear(globalConns)
+		clear(touchConns)
 		for player in pairs(entries) do removePlayer(player) end
 		for inst in pairs(gunEntries) do removeGun(inst) end
 		folder:Destroy()
-		if gui then gui:Destroy() end
 		env.KS_MM2_ESP = nil
 	end,
 }
