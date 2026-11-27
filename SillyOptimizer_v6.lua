@@ -4864,6 +4864,18 @@ G.SIDE_W, G.HEAD_H = 206, 96
 G.TAB_H, G.TAB_GAP = 48, 4
 G.SUB_Y = 58
 
+-- ABA PERSONALIZADA: edite aqui o nome da aba, os textos e o link do script
+G.Custom = {
+	tabName = "Meu Script", -- nome da aba na lateral
+	title = "Meus scripts", -- título grande da página
+	sub = "Atalhos para os seus scripts", -- linha pequena abaixo do título
+	section = "SCRIPTS", -- título da seção dentro da página
+	optName = "Executar script", -- nome da opção
+	optDesc = "Roda o script configurado nesta opção", -- descrição da opção
+	btnText = "Executar", -- texto do botão
+	url = "https://raw.githubusercontent.com/sillybuu/SillyOptimizer/refs/heads/main/Silly_MM2.lua",
+}
+
 -- cada aba tem a própria cor de destaque (sempre pastel)
 local TABS = {
 	{ id = "home", name = "Home", kicker = "HOME", accent = C.Coral,
@@ -4894,6 +4906,8 @@ local TABS = {
 	  title = "Perfis", sub = "Salve e aplique configurações de todas as abas" },
 	{ id = "fab", name = "Botão", kicker = "BOTÃO", accent = C.Apricot,
 	  title = "Botão flutuante", sub = "Tamanho, opacidade e presets visíveis" },
+	{ id = "custom", name = G.Custom.tabName, kicker = string.upper(G.Custom.tabName), accent = C.Peach,
+	  title = G.Custom.title, sub = G.Custom.sub },
 }
 G.TI = {}
 for i, t in ipairs(TABS) do
@@ -5152,6 +5166,7 @@ local GROUPS = {
 	{ id = "server", name = "Servidor", icon = "server", accent = C.Butter, subs = { "server", "friends" } },
 	{ id = "protect", name = "Proteção", icon = "lock", accent = C.Terra, subs = { "protect" } },
 	{ id = "settings", name = "Configurações", icon = "sliders", accent = C.Apricot, subs = { "config", "profiles", "fab" } },
+	{ id = "custom", name = G.Custom.tabName, icon = "spark", accent = C.Peach, subs = { "custom" } },
 }
 G.groupOf, G.subPos, G.groupSub, G.pageY, G.SubBars, G.MainUI = {}, {}, {}, {}, {}, {}
 for gi, grp in ipairs(GROUPS) do
@@ -5169,7 +5184,7 @@ G.TabHolder.CanvasSize = UDim2.fromOffset(0, #GROUPS * (G.TAB_H + G.TAB_GAP))
 local PIC = {
 	home = "home", optimize = "zap", network = "wifi", visual = "palette", audio = "speaker", server = "server",
 	protect = "shield", settings = "gear", presets = "layers", tweaks = "sliders", farm = "moon", hud = "layout",
-	friends = "users", config = "toggle", profiles = "bookmark", fab = "pointer",
+	friends = "users", config = "toggle", profiles = "bookmark", fab = "pointer", custom = "globe",
 }
 Ext.PIC = PIC
 local GLYPH = {
@@ -9901,6 +9916,37 @@ Ext.run(function()
 		end
 	end
 	refreshProfiles()
+end)
+
+--------------------------------------------------------------------------
+-- ABA PERSONALIZADA (textos e link ficam em G.Custom, perto da lista TABS)
+--------------------------------------------------------------------------
+Ext.run(function()
+	local tab, body = TABS[G.TI.custom], G.Bodies[G.TI.custom]
+	local A = tab.accent
+	local busy = false
+	Section(body, 1, G.Custom.section, A)
+	local r = Row(body, 2, { title = G.Custom.optName, desc = G.Custom.optDesc, accent = A, rightWidth = 130, pressable = false })
+	Button(r.frame, { text = G.Custom.btnText, style = "tinted", accent = A, size = UDim2.fromOffset(100, 34), anchor = Vector2.new(1, 0.5), position = UDim2.new(1, -16, 0.5, 0) }).Activated:Connect(function()
+		if busy then
+			return
+		end
+		busy = true
+		task.spawn(function()
+			local ok, err = pcall(function()
+				local src = game:HttpGet(G.Custom.url)
+				local fn = assert(loadstring(src))
+				fn()
+			end)
+			busy = false
+			if ok then
+				toast(G.Custom.optName .. " ✓", A)
+			else
+				warn("[Silly Optimizer] " .. tostring(err))
+				toast("Falhou: veja o console (F9)", C.Warn)
+			end
+		end)
+	end)
 end)
 
 --------------------------------------------------------------------------
