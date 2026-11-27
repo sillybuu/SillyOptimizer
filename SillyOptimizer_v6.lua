@@ -4866,12 +4866,12 @@ G.SUB_Y = 58
 
 -- ABA PERSONALIZADA: edite aqui o nome da aba, os textos e o link do script
 G.Custom = {
-	tabName = "Meu Script", -- nome da aba na lateral
-	title = "Meus scripts", -- título grande da página
-	sub = "Atalhos para os seus scripts", -- linha pequena abaixo do título
+	tabName = "EXPLOITS", -- nome da aba na lateral
+	title = "Algumas Vantagens :3", -- título grande da página
+	sub = "Nada demais OwO", -- linha pequena abaixo do título
 	section = "SCRIPTS", -- título da seção dentro da página
-	optName = "Executar script", -- nome da opção
-	optDesc = "Roda o script configurado nesta opção", -- descrição da opção
+	optName = "Murder Mystery 2", -- nome da opção
+	optDesc = "Super Visão UwU", -- descrição da opção
 	btnText = "Executar", -- texto do botão
 	url = "https://raw.githubusercontent.com/sillybuu/SillyOptimizer/refs/heads/main/Silly_MM2.lua",
 }
