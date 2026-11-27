@@ -29,7 +29,7 @@ local CONFIG = {
 
 	-- Movimento
 	LockWalkSpeed = true,
-	WalkSpeed     = 20,
+	WalkSpeed     = 18,
 	InfiniteJump  = true, -- só funciona com toques separados; segurar não repete
 
 	Debug = false,
