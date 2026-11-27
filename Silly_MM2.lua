@@ -1,4 +1,4 @@
--- KS NEXUS | MM2 ESP + Gun ESP + Speed 18 + Infinite Jump + Shoot Murder (v4.1)
+-- KS NEXUS | MM2 ESP + Gun ESP + Speed 18 + Infinite Jump + Shoot Murder (v4.2)
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
@@ -34,14 +34,17 @@ local CONFIG = {
 	AimPart         = "HumanoidRootPart",
 	PredictionDiv   = 40,
 	MaxPredictSpeed = 60,
-	ShootButton     = true,
-	ButtonSize      = 80,
-	ButtonPosition  = UDim2.new(1, -125, 1, -260),
-	ButtonBgTransp  = 0.75,
-	ButtonStrokeTransp = 0.55,
-	ShootDebounce   = 0.4,
-	EquipTimeout    = 0.6,
-	ActivateWait    = 0.35,
+
+	ShootButton        = true,
+	ButtonSize         = 90,
+	ButtonPosition     = UDim2.new(1, -135, 1, -270),
+	ButtonBgTransp     = 0.55,
+	ButtonStrokeTransp = 0.1,
+	ButtonStrokeThick  = 3,
+	ShootDebounce      = 0.4,
+	EquipTimeout       = 0.6,
+	ActivateWait       = 0.5,
+	VirtualClick       = true, -- fallback se Activate() não gerar o ShootGun
 
 	Debug = false,
 }
@@ -77,7 +80,8 @@ local gunEntries = {}
 local globalConns = {}
 local touchConns = {}
 local running = true
-local gui, button
+local gui, button, stroke
+local hookInstalled = false
 
 local function clear(list)
 	for i = #list, 1, -1 do
@@ -291,9 +295,8 @@ local function addGun(inst)
 	end)
 end
 
----------------------------------------------------------------- Funções do silent aim (só definições)
+---------------------------------------------------------------- Silent aim: definições
 local lastShotAt = 0
-local shotCache = nil
 
 local function findMurderer()
 	for _, p in ipairs(Players:GetPlayers()) do
@@ -325,7 +328,6 @@ local function onShoot(remote, args)
 	if not running then return nil end
 	if not findTool(localPlayer, CONFIG.SheriffTool) then return nil end
 	lastShotAt = os.clock()
-	shotCache = { remote = remote, args = args }
 	if CONFIG.Debug then
 		local types = {}
 		for i = 1, args.n do types[i] = typeof(args[i]) end
@@ -339,15 +341,44 @@ local function onShoot(remote, args)
 	return out
 end
 
+---------------------------------------------------------------- Botão: lógica de tiro
+local WHITE = Color3.fromRGB(255, 255, 255)
+local GREEN = Color3.fromRGB(120, 255, 140)
+local RED   = Color3.fromRGB(255, 110, 110)
+
+local VIM
+pcall(function() VIM = game:GetService("VirtualInputManager") end)
+
 local lastShot = 0
 local shooting = false
+
+local function flash(color)
+	if not stroke then return end
+	stroke.Color = color
+	task.delay(0.35, function()
+		if stroke and stroke.Parent then stroke.Color = WHITE end
+	end)
+end
+
+local function fail(reason)
+	warn("[KS] tiro não saiu: " .. reason)
+	flash(RED)
+end
+
+local function waitShot(since)
+	local t = os.clock()
+	while lastShotAt < since and os.clock() - t < CONFIG.ActivateWait do task.wait() end
+	return lastShotAt >= since
+end
 
 local function shoot()
 	if not running or shooting or os.clock() - lastShot < CONFIG.ShootDebounce then return end
 	local gun = findTool(localPlayer, CONFIG.SheriffTool)
-	if not gun or not findMurderer() then return end
+	if not gun then return fail("sem " .. CONFIG.SheriffTool) end
+	if not findMurderer() then return fail("murder não encontrado (sem " .. CONFIG.MurderTool .. " visível ou morto)") end
 	local hum, char = aliveHumanoid(localPlayer)
 	if not hum then return end
+
 	shooting = true
 	lastShot = os.clock()
 
@@ -356,30 +387,27 @@ local function shoot()
 			hum:EquipTool(gun)
 			local t0 = os.clock()
 			while gun.Parent ~= char and os.clock() - t0 < CONFIG.EquipTimeout do task.wait() end
-			if gun.Parent ~= char then return end
+			if gun.Parent ~= char then return fail("não consegui equipar a arma") end
 		end
 
 		local t1 = os.clock()
 		gun:Activate()
 
-		local t2 = os.clock()
-		while lastShotAt < t1 and os.clock() - t2 < CONFIG.ActivateWait do task.wait() end
-		if lastShotAt >= t1 then return end
+		if not hookInstalled then return end -- sem hook não dá para observar o ShootGun
+		if waitShot(t1) then return flash(GREEN) end
 
-		local c = shotCache
-		if not (c and c.remote and c.remote:IsDescendantOf(game)) then
-			if CONFIG.Debug then warn("[KS] sem ShootGun capturado: atire uma vez manualmente para o fallback") end
-			return
+		if CONFIG.VirtualClick and VIM then
+			local vp = Workspace.CurrentCamera.ViewportSize
+			local x, y = vp.X / 2, vp.Y / 2
+			local t2 = os.clock()
+			VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
+			task.wait(0.03)
+			VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
+			if waitShot(t2) then return flash(GREEN) end
 		end
-		local aim = murdererAimPoint()
-		if not aim or typeof(c.args[2]) ~= "Vector3" then return end
-		local a = table.pack(table.unpack(c.args, 1, c.args.n))
-		a[2] = aim
-		task.spawn(function()
-			pcall(function() c.remote:InvokeServer(table.unpack(a, 1, a.n)) end)
-		end)
+		fail("nenhum ShootGun visto após Activate e clique virtual")
 	end)
-	if not ok and CONFIG.Debug then warn("[KS] shoot erro:", err) end
+	if not ok then warn("[KS] erro no tiro: " .. tostring(err)) end
 	shooting = false
 end
 
@@ -499,7 +527,10 @@ end
 ---------------------------------------------------------------- 5) Hook do ShootGun
 env.KS_MM2_Handler4 = onShoot
 try("hook ShootGun", function()
-	if env.KS_MM2_Hook4 then return end
+	if env.KS_MM2_Hook4 then
+		hookInstalled = true
+		return
+	end
 	if not (hookmetamethod and getnamecallmethod and newcclosure and checkcaller) then
 		warn("[KS] executor sem hookmetamethod/newcclosure/checkcaller: silent aim desativado, o resto continua.")
 		return
@@ -520,9 +551,10 @@ try("hook ShootGun", function()
 		return old(self, ...)
 	end))
 	env.KS_MM2_Hook4 = true
+	hookInstalled = true
 end)
 
----------------------------------------------------------------- 6) Botão
+---------------------------------------------------------------- 6) Botão (fixo, atira ao toque)
 if CONFIG.ShootButton then
 	try("botão", function()
 		gui = Instance.new("ScreenGui")
@@ -535,7 +567,7 @@ if CONFIG.ShootButton then
 		button = Instance.new("TextButton")
 		button.Size = UDim2.fromOffset(CONFIG.ButtonSize, CONFIG.ButtonSize)
 		button.Position = CONFIG.ButtonPosition
-		button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+		button.BackgroundColor3 = WHITE
 		button.BackgroundTransparency = CONFIG.ButtonBgTransp
 		button.Text = ""
 		button.AutoButtonColor = false
@@ -543,36 +575,17 @@ if CONFIG.ShootButton then
 		button.Visible = false
 		button.Parent = gui
 		Instance.new("UICorner", button).CornerRadius = UDim.new(1, 0)
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(255, 255, 255)
-		stroke.Thickness = 2
+
+		stroke = Instance.new("UIStroke")
+		stroke.Color = WHITE
+		stroke.Thickness = CONFIG.ButtonStrokeThick
 		stroke.Transparency = CONFIG.ButtonStrokeTransp
 		stroke.Parent = button
 
-		local dragging, dragStart, startPos, moved = false, nil, nil, false
 		table.insert(globalConns, button.InputBegan:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.Touch
 				or input.UserInputType == Enum.UserInputType.MouseButton1 then
-				dragging, moved = true, false
-				dragStart, startPos = input.Position, button.Position
-			end
-		end))
-		table.insert(globalConns, UserInputService.InputChanged:Connect(function(input)
-			if dragging and (input.UserInputType == Enum.UserInputType.Touch
-				or input.UserInputType == Enum.UserInputType.MouseMovement) then
-				local d = input.Position - dragStart
-				if d.Magnitude > 12 then moved = true end
-				if moved then
-					button.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
-						startPos.Y.Scale, startPos.Y.Offset + d.Y)
-				end
-			end
-		end))
-		table.insert(globalConns, UserInputService.InputEnded:Connect(function(input)
-			if dragging and (input.UserInputType == Enum.UserInputType.Touch
-				or input.UserInputType == Enum.UserInputType.MouseButton1) then
-				dragging = false
-				if not moved then task.spawn(shoot) end
+				task.spawn(shoot)
 			end
 		end))
 	end)
@@ -582,7 +595,6 @@ env.KS_MM2_ESP = {
 	Destroy = function()
 		running = false
 		env.KS_MM2_Handler4 = nil
-		shotCache = nil
 		clear(globalConns)
 		clear(touchConns)
 		for player in pairs(entries) do removePlayer(player) end
@@ -595,4 +607,4 @@ env.KS_MM2_ESP = {
 
 local n = 0
 for _ in pairs(entries) do n += 1 end
-warn("[KS] v4.1 carregada. Jogadores no ESP: " .. n)
+warn("[KS] v4.2 carregada. Jogadores no ESP: " .. n .. " | hook ShootGun: " .. tostring(hookInstalled))
