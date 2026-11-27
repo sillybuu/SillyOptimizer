@@ -1,61 +1,100 @@
--- Configurações de Cores (Pastel)
-local colors = {
-    Murderer = Color3.fromRGB(255, 182, 193), -- Vermelho Pastel
-    Sheriff = Color3.fromRGB(173, 216, 230),  -- Azul Pastel
-    Survivor = Color3.fromRGB(255, 255, 224)  -- Amarelo Pastel
+-- BUU | MM2 ESP (outline): Murder = vermelho, Sheriff = azul, Survivor = amarelo
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+if getgenv and getgenv().KSNEXUS_MM2_ESP then
+    pcall(getgenv().KSNEXUS_MM2_ESP)
+end
+
+local COLORS = {
+    Murder   = Color3.fromRGB(255, 105, 97),  -- vermelho pastel
+    Sheriff  = Color3.fromRGB(119, 158, 203), -- azul pastel
+    Survivor = Color3.fromRGB(253, 253, 150), -- amarelo pastel
 }
 
-local Players = game:GetService("Players")
-
-local function applyESP(player)
-    local function setupCharacter(character)
-        if not character then return end
-        
-        -- Cria o Highlight (ESP)
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "MM2_ESP"
-        highlight.FillTransparency = 1 -- Deixa transparente apenas o preenchimento
-        highlight.OutlineColor = Color3.new(1, 1, 1) -- Cor padrão inicial
-        highlight.Parent = character
-        
-        -- Loop para atualizar a cor baseada no cargo (Role)
-        -- Como o MM2 muda o cargo durante a partida, o script checa a cada segundo
-        task.spawn(function()
-            while character and character.Parent do
-                local role = "Survivor" -- Valor padrão
-                
-                -- Verifica as tags/atributos de cargo do MM2
-                -- O script tenta identificar se o jogador é o Murderer ou Sheriff
-                if player:GetAttribute("Role") == "Murderer" or character:FindFirstChild("Murderer") then
-                    role = "Murderer"
-                elseif player:GetAttribute("Role") == "Sheriff" or character:FindFirstChild("Sheriff") then
-                    role = "Sheriff"
-                end
-                
-                -- Aplica a cor correspondente
-                if colors[role] then
-                    highlight.OutlineColor = colors[role]
-                end
-                
-                task.wait(1)
-            end
-        end)
-    end
-
-    -- Garante que o ESP funcione sempre que o personagem renascer
-    player.CharacterAdded:Connect(setupCharacter)
-    if player.Character then
-        setupCharacter(player.Character)
-    end
-end
-
--- Aplica o script a todos os jogadores atuais e novos que entrarem
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= Players.LocalPlayer then
-        applyESP(player)
-    end
-end
-
-Players.PlayerAdded:Connect(function(player)
-    applyESP(player)
+local folder = Instance.new("Folder")
+folder.Name = "KSNEXUS_ESP"
+local okParent = pcall(function()
+    folder.Parent = (gethui and gethui()) or game:GetService("CoreGui")
 end)
+if not okParent or not folder.Parent then
+    folder.Parent = lp:WaitForChild("PlayerGui")
+end
+
+local roles, highlights, conns = {}, {}, {}
+local running = true
+
+local function hasTool(player, name)
+    local bp = player:FindFirstChildOfClass("Backpack")
+    local ch = player.Character
+    for _, c in ipairs({ bp, ch }) do
+        if c then
+            local t = c:FindFirstChild(name)
+            if t and t:IsA("Tool") then return true end
+        end
+    end
+    return false
+end
+
+local function getRole(player)
+    if hasTool(player, "Knife") then
+        roles[player] = "Murder"
+    elseif hasTool(player, "Gun") then
+        roles[player] = "Sheriff"
+    end
+    return roles[player] or "Survivor" -- papel fica em cache, então persiste após a morte
+end
+
+local function removeHighlight(player)
+    local h = highlights[player]
+    if h then h:Destroy() end
+    highlights[player] = nil
+end
+
+local function hookPlayer(player)
+    if player == lp then return end
+    conns[#conns + 1] = player.CharacterAdded:Connect(function()
+        roles[player] = nil -- novo personagem = nova rodada
+    end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do hookPlayer(p) end
+conns[#conns + 1] = Players.PlayerAdded:Connect(hookPlayer)
+conns[#conns + 1] = Players.PlayerRemoving:Connect(function(p)
+    removeHighlight(p)
+    roles[p] = nil
+end)
+
+task.spawn(function()
+    while running do
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= lp then
+                local char = player.Character
+                if char and char.Parent then
+                    local h = highlights[player]
+                    if not h or not h.Parent then
+                        h = Instance.new("Highlight")
+                        h.FillTransparency = 1 -- só contorno
+                        h.OutlineTransparency = 0
+                        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        h.Parent = folder
+                        highlights[player] = h
+                    end
+                    h.Adornee = char
+                    h.OutlineColor = COLORS[getRole(player)]
+                else
+                    removeHighlight(player)
+                end
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+if getgenv then
+    getgenv().KSNEXUS_MM2_ESP = function()
+        running = false
+        for _, c in ipairs(conns) do c:Disconnect() end
+        folder:Destroy()
+    end
+end
